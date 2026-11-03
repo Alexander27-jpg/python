@@ -3,7 +3,7 @@ import os
 import time
 
 # Configuración de página ancha e icono
-st.set_page_config(page_title="agriTechGO - Login", page_icon="", layout="wide")
+st.set_page_config(page_title="agriTechGO", page_icon="", layout="wide")
 
 # Nombre del archivo de tu logo guardado en la misma carpeta
 RUTA_LOGO = "logo.png"
@@ -72,17 +72,11 @@ if st.session_state.pantalla == "splash":
 
         <div class="splash-container">
             <div class="plant-wrapper">
-                <!-- Planta vectorial dibujada por código (SVG) con estética tech -->
                 <svg width="110" height="110" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Base / Tierra -->
                     <path d="M25 80C25 80 40 73 50 73C60 73 75 80 75 80" stroke="#52b788" stroke-width="4" stroke-linecap="round"/>
-                    <!-- Tallo central -->
                     <path d="M50 73V38" stroke="#74c69d" stroke-width="5" stroke-linecap="round"/>
-                    <!-- Hoja izquierda -->
                     <path d="M50 55C40 55 28 45 32 32C36 19 50 38 50 55Z" fill="#52b788" stroke="#b7e4c7" stroke-width="2"/>
-                    <!-- Hoja derecha -->
                     <path d="M50 45C60 42 74 32 70 19C66 6 50 28 50 45Z" fill="#74c69d" stroke="#e2fceb" stroke-width="2"/>
-                    <!-- Brote superior -->
                     <path d="M50 38C45 28 50 15 50 10C50 15 55 28 50 38Z" fill="#b7e4c7"/>
                 </svg>
             </div>
@@ -96,7 +90,7 @@ if st.session_state.pantalla == "splash":
     st.rerun()
 
 # -------------------------------------------------------------------------
-# PANTALLA DE LOGIN ESTILO SPLIT MODERN UI
+# PANTALLA DE LOGIN
 # -------------------------------------------------------------------------
 elif st.session_state.pantalla == "login":
     
@@ -194,7 +188,7 @@ elif st.session_state.pantalla == "login":
             st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True)
             st.image(RUTA_LOGO, width=90)
         else:
-            st.markdown("## AGREGEN EL LOGOOO")
+            st.markdown("## COLOQUEN EL LOGO")
 
         st.markdown("""
             <div class="left-card">
@@ -208,7 +202,7 @@ elif st.session_state.pantalla == "login":
                 </div>
                 <div class="left-footer">
                     © 2026 agriTechGO. 
-                    <br>créditos: ing Alexander, ing Kevin, ing Luis, ing jonathan.
+                    <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan.
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -217,47 +211,143 @@ elif st.session_state.pantalla == "login":
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("## **agriTechGO**", unsafe_allow_html=True)
         st.markdown("### **¡Bienvenido de nuevo!**")
-        st.caption("¿No tienes cuenta aún? **Regístrate gratis**. Toma menos de un minuto.")
+        st.info("💡 **Credenciales de prueba para la presentación:**\n* **Usuario:** `demo@agritech.com` | **Clave:** `1234`")
         
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_moderno", clear_on_submit=False):
-            email = st.text_input("Correo o Usuario", placeholder="hisalim.ux@gmail.com")
+            email = st.text_input("Correo o Usuario", placeholder="demo@agritech.com")
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             
             rol = st.selectbox(
                 "Selecciona tu perfil en la plataforma:",
-                ["👨‍🌾 Agricultor / Caficultor", "🛒 Comprador Directo", "📈 Inversionista Agro"]
+                [
+                    "👨‍🌾 Agricultor / Caficultor", 
+                    "🛒 Comprador Directo", 
+                    "📈 Inversionista Agro", 
+                    "🛠️ Administradores (Equipo)"
+                ]
             )
             
             st.markdown("<br>", unsafe_allow_html=True)
             submit = st.form_submit_button("Iniciar Sesión Ahora", use_container_width=True)
 
         if submit:
-            if email.strip() != "" and password.strip() != "":
+            # Validación rápida de prueba
+            if email.strip() != "" and password == "1234":
                 st.session_state.pantalla = "dashboard"
                 st.session_state.usuario = email
                 st.session_state.rol = rol
                 st.rerun()
+            elif email.strip() == "":
+                st.error("Por favor ingresa un correo o usuario.")
             else:
-                st.error("Por favor completa los datos de acceso.")
+                st.error("Contraseña incorrecta (Usa: `1234`).")
 
         st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Olvidaste tu contraseña? <b>Haz clic aquí</b></p>", unsafe_allow_html=True)
 
-# ----------------------------------------------------
-# PANTALLA 2: DASHBOARD
-# ----------------------------------------------------
+# -------------------------------------------------------------------------
+# PANTALLA 2: DASHBOARDS SEGÚN EL ROL SELECCIONADO
+# -------------------------------------------------------------------------
 elif st.session_state.pantalla == "dashboard":
-    st.title("🚜 Panel Principal - agriTechGO")
-    st.success(f"Sesión iniciada como: **{st.session_state.usuario}** ({st.session_state.rol})")
     
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Lotes de Café", "4 Activos")
-    col2.metric("Compradores Directos", "18 Conectados")
-    col3.metric("Estado de Ayuda", "Activo")
+    rol_actual = st.session_state.get("rol", "")
+    
+    # --- 1. VISTA DE AGRICULTOR / CAFICULTOR ---
+    if "Agricultor" in rol_actual:
+        st.title("👨‍🌾 Panel del Caficultor - agriTechGO")
+        st.success(f"Bienvenido, agricultor: **{st.session_state.usuario}**")
+        
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Mis Lotes Registrados", "3 Fincas")
+        col2.metric("Cosecha Activa (Carga)", "45 Arrobas")
+        col3.metric("Ofertas de Compradores", "5 Pendientes")
+        
+        st.markdown("### ☕ Gestión de Cosechas y Lotes")
+        st.info("Aquí puedes publicar tus lotes de café pergamino o suave directamente al mercado sin intermediarios.")
+        
+        col_A, col_B = st.columns(2)
+        with col_A:
+            st.text_input("Nombre del Lote / Finca", "La Esperanza - Vereda Atalaya")
+            st.number_input("Cantidad disponible (Arrobas)", 1, 500, 45)
+        with col_B:
+            st.selectbox("Calidad del Grano", ["Café Especial (Exóticas)", "Café Estándar Premium", "Café Comercial"])
+            st.number_input("Precio por Arroba (COP)", 100000, 300000, 185000)
+            
+        if st.button("🚀 Publicar Cosecha al Mercado"):
+            st.success("¡Tu lote ha sido publicado con éxito para los compradores directos!")
+
+    # --- 2. VISTA DE COMPRADOR DIRECTO ---
+    elif "Comprador" in rol_actual:
+        st.title("🛒 Mercado de Café Directo - agriTechGO")
+        st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
+        
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Caficultores Disponibles", "18 Aliados")
+        col2.metric("Kilos Adquiridos", "1,200 kg")
+        col3.metric("Ahorro Intermediarios", "14%")
+
+        st.markdown("### 🌾 Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
+        
+        # Simulando una tablita o tarjetas de café
+        st.markdown("""
+        | Finca / Productor | Variedad | Calidad | Precio / Arroba | Estado | Acción |
+        | :--- | :--- | :--- | :--- | :--- | :--- |
+        | **Finca El Mirador** | Castillo | Especial | \$190,000 COP | Disponible | 🛒 Comprar |
+        | **Café San Isidro** | Caturra | Premium | \$175,000 COP | Disponible | 🛒 Comprar |
+        | **Asociación Motilones** | Borbón | Exótico | \$220,000 COP | Disponible | 🛒 Comprar |
+        """)
+        
+        if st.button("📦 Ver mis pedidos en tránsito"):
+            st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
+
+    # --- 3. VISTA DE INVERSIONISTA AGRO ---
+    elif "Inversionista" in rol_actual:
+        st.title("📈 Panel de Inversión Agrícola - agriTechGO")
+        st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
+        
+        st.markdown("---")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Proyectos Financiados", "2 Activos")
+        col2.metric("Rentabilidad Promedio", "18.5% E.A.")
+        col3.metric("Capital en Riesgo Controlado", "Bajo")
+
+        st.markdown("### 💡 Oportunidades de Crowdfunding Agrícola")
+        st.write("Financia infraestructura y tecnología para pequeños productores de café asegurando retorno directo sobre cosecha.")
+        
+        st.warning("⚡ **Proyecto Destacado:** Infraestructura de secado solar - Vereda Las Margaritas (Meta: $5,000,000 COP - 75% Recaudado)")
+        if st.button("💰 Invertir en este Proyecto"):
+            st.success("¡Gracias por impulsar el campo! Transacción simulada con éxito.")
+
+    # --- 4. VISTA DE ADMINISTRADORES (EQUIPO) ---
+    elif "Administradores" in rol_actual:
+        st.title(" Panel de Control y Administración - agriTechGO")
+        st.success(f"Sesión de Administrador activa: **{st.session_state.usuario}** - Alexander")
+        
+        st.markdown("---")
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Usuarios Totales", "142")
+        col2.metric("Transacciones", "38")
+        col3.metric("Estado del Sistema", "Óptimo 🟢")
+        col4.metric("Versión App", "v1.0.0 Pro")
+
+        st.markdown("###  Equipo de Desarrollo (Ingeniería de Sistemas)")
+        st.info("Control maestro del sistema, consultas de base de datos simuladas y parámetros generales de la plataforma.")
+        
+        tab1, tab2 = st.tabs(["📊 Estadísticas Globales", "⚙️ Configuración del Sistema"])
+        with tab1:
+            st.write("• **Caficultores registrados:** 85")
+            st.write("• **Compradores activos:** 42")
+            st.write("• **Inversionistas:** 15")
+        with tab2:
+            if st.button("🔄 Reiniciar Caché de Conexión DB"):
+                st.success("Caché limpiada correctamente.")
+            if st.button("📥 Exportar Reporte General (CSV)"):
+                st.success("Reporte generado con éxito.")
 
     st.markdown("---")
-    if st.button("⬅ Cerrar sesión"):
+    if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
         st.rerun()
