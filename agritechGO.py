@@ -351,3 +351,5 @@ elif st.session_state.pantalla == "dashboard":
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
         st.rerun()
+
+        print("alexander")
