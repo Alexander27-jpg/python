@@ -352,3 +352,4 @@ elif st.session_state.pantalla == "dashboard":
         st.session_state.pantalla = "splash"
         st.rerun()
 print("hola alexander")
+print("hola kevin")
