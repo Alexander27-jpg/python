@@ -351,15 +351,3 @@ elif st.session_state.pantalla == "dashboard":
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
         st.rerun()
-print("hola alexander2")
-<<<<<<< HEAD
-print("hola kevin2")
-=======
-
-
-print("Luis Balaguera2")
-print("Luis Balaguera2 prueba")
->>>>>>> c6661e663c40aa7c4ed5677a99ba602a6f008f91
-
-
-print("hola")
