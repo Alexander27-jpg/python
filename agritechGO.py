@@ -354,4 +354,4 @@ elif st.session_state.pantalla == "dashboard":
 print("hola alexander")
 
 
-print("Luis Balaguera")
+print("Luis Balaguera2")
