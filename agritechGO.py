@@ -183,7 +183,7 @@ elif st.session_state.pantalla == "login":
 
     col_izq, col_der = st.columns([1, 1], gap="large")
 
-    with col_izq: 
+    with col_izq:
         if os.path.exists(RUTA_LOGO):
             st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True)
             st.image(RUTA_LOGO, width=90)
@@ -350,5 +350,7 @@ elif st.session_state.pantalla == "dashboard":
     st.markdown("---")
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
+
         st.rerun()
 print("hola")
+
