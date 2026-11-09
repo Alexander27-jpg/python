@@ -913,7 +913,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_init_estado(st.session_state.get("usuario", "Usuario_Demo"))
 
         tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
-            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
+            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", " Wallet"]
         )
         with tab_perfil:
             inv_tab_perfil()
