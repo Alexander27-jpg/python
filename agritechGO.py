@@ -13,6 +13,7 @@ RUTA_LOGO = "logo.png"
 if "pantalla" not in st.session_state:
     st.session_state.pantalla = "splash"
 
+
 def cop(valor):
     """Formatea un número como pesos colombianos: $1.500.000 COP"""
     return f"${valor:,.0f} COP".replace(",", ".")
@@ -251,6 +252,7 @@ def inv_tab_wallet():
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.caption("Sin movimientos todavía.")    
+
 
 # -------------------------------------------------------------------------
 # PANTALLA DE CARGA (SPLASH SCREEN) CON PLANTA VECTORIAL ANIMADA
@@ -799,11 +801,11 @@ elif st.session_state.pantalla == "dashboard":
                 agri_fecha = st.date_input(
                  "Fecha de cosecha",
                  value=date.today()
-                 
+
                 )
 
                 agri_foto = st.file_uploader(
-                    "📸 Fotografía del producto",
+                    "Fotografía del producto",
                     type=["png", "jpg", "jpeg", "webp"],
                     help="Sube una fotografía de tu cosecha."
                 )
@@ -907,6 +909,22 @@ elif st.session_state.pantalla == "dashboard":
         st.title("📈 Panel de Inversión Agrícola - agriTechGO")
         st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
         
+        if "inv_perfil" not in st.session_state:
+            inv_init_estado(st.session_state.get("usuario", "Usuario_Demo"))
+
+        tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
+            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
+        )
+        with tab_perfil:
+            inv_tab_perfil()
+        with tab_fincas:
+            inv_tab_fincas()
+        with tab_inv:
+            inv_tab_inversiones()
+        with tab_wallet:
+            inv_tab_wallet()
+        # -------------------------------------
+
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
         col1.metric("Proyectos Financiados", "2 Activos")
@@ -919,7 +937,6 @@ elif st.session_state.pantalla == "dashboard":
         st.warning("⚡ **Proyecto Destacado:** Infraestructura de secado solar - Vereda Las Margaritas (Meta: $5,000,000 COP - 75% Recaudado)")
         if st.button("💰 Invertir en este Proyecto"):
             st.success("¡Gracias por impulsar el campo! Transacción simulada con éxito.")
-
             
 
 
@@ -954,18 +971,6 @@ elif st.session_state.pantalla == "dashboard":
             if st.button("📥 Exportar Reporte General (CSV)"):
                 st.success("Reporte generado con éxito.")
 
-    tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
-                ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
-            )
-    with tab_perfil:
-                inv_tab_perfil()
-    with tab_fincas:
-                inv_tab_fincas()
-    with tab_inv:
-                inv_tab_inversiones()
-    with tab_wallet:
-                inv_tab_wallet()              
-
     st.markdown("---")
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
@@ -973,3 +978,12 @@ elif st.session_state.pantalla == "dashboard":
         st.rerun()
 
 
+
+
+
+
+
+
+
+
+print(".")
