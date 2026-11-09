@@ -890,7 +890,7 @@ elif st.session_state.pantalla == "dashboard":
         col2.metric("Kilos Adquiridos", "1,200 kg")
         col3.metric("Ahorro Intermediarios", "14%")
 
-        st.markdown("### 🌾 Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
+        st.markdown("###  Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
         
         # Simulando una tablita o tarjetas de café
         st.markdown("""
