@@ -564,16 +564,6 @@ elif st.session_state.pantalla == "login":
                 border-top: 1px solid rgba(255,255,255,0.2);
                 padding-top: 10px;
             }
-
-            div[data-testid="column"]:nth-of-type(2) {
-                background: rgba(13, 27, 20, 0.9);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                padding: 2.5rem;
-                border-radius: 22px;
-                box-shadow: 0px 20px 40px rgba(0, 0, 0, 0.8);
-                border: 2px solid rgba(82, 183, 136, 0.4);
-            }
             
             h2, h3, p, label, .stMarkdown {
                 color: #ffffff !important;
@@ -583,8 +573,9 @@ elif st.session_state.pantalla == "login":
                 color: #a3cef1 !important;
             }
 
+            /* Botón principal estilizado y brillante */
             div.stButton > button:first-child {
-                background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #52b788 100%);
+                background: linear-gradient(135deg, #2d6a4f 0%, #40916c 50%, #52b788 100%);
                 color: white;
                 border-radius: 12px;
                 height: 52px;
@@ -595,7 +586,7 @@ elif st.session_state.pantalla == "login":
                 transition: 0.3s;
             }
             div.stButton > button:first-child:hover {
-                background: linear-gradient(135deg, #2d6a4f 0%, #52b788 100%);
+                background: linear-gradient(135deg, #40916c 0%, #52b788 100%);
                 box-shadow: 0px 0px 30px rgba(82, 183, 136, 0.9);
                 transform: scale(1.02);
             }
@@ -605,35 +596,42 @@ elif st.session_state.pantalla == "login":
     col_izq, col_der = st.columns([1, 1], gap="large")
 
     with col_izq:
-        if os.path.exists(RUTA_LOGO):
-            st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True)
-            st.image(RUTA_LOGO, width=90)
-        else:
-            st.markdown("## COLOQUEN EL LOGO")
+            if os.path.exists(RUTA_LOGO):
+                # Aquí lo corrí hacia la derecha con un valor positivo (40px). 
+                # Puedes ajustar el "40px" si lo quieres más a la derecha o un poco menos.
+                st.markdown("""
+                    <div style="position: relative; left: 40px; top: 0px;">
+                """, unsafe_allow_html=True)
+                
+                st.image(RUTA_LOGO, width=90)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("## COLOQUEN EL LOGO")
 
-        st.markdown("""
-            <div class="left-card">
-                <div>
-                    <h1>¡Hola,<br>agriTechGO!👋</h1>
-                    <p style="margin-top: 20px;">
-                        El impulso que el campo necesita, directo del cultivo a la mesa. 
-                        Conectando a nuestros agricultores de café directamente con el mercado, 
-                        eliminando intermediarios y generando comercio justo.
-                    </p>
+            st.markdown("""
+                <div class="left-card">
+                    <div>
+                        <h1>¡Bienvenido a<br>agriTechGO! </h1>
+                        <p style="margin-top: 20px;">
+                            El impulso que el campo necesita, directo del cultivo a la mesa. 
+                            Conectando a nuestros agricultores de café directamente con el mercado, 
+                            eliminando intermediarios y generando comercio justo.
+                        </p>
+                    </div>
+                    <div class="left-footer">
+                        © 2026 agriTechGO. 
+                        <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan. 
+                    </div>
                 </div>
-                <div class="left-footer">
-                    © 2026 agriTechGO. 
-                    <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan.
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
     with col_der:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("## **agriTechGO**", unsafe_allow_html=True)
-        st.markdown("### **¡Bienvenido de nuevo!**")
-        st.info("💡 **Credenciales de prueba para la presentación:**\n* **Usuario:** `demo@agritech.com` | **Clave:** `1234`")
+        st.markdown("### **Inicia sesión para continuar**")
         
+       
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_moderno", clear_on_submit=False):
@@ -654,7 +652,6 @@ elif st.session_state.pantalla == "login":
             submit = st.form_submit_button("Iniciar Sesión Ahora", use_container_width=True)
 
         if submit:
-            # Validación rápida de prueba
             if email.strip() != "" and password == "1234":
                 st.session_state.pantalla = "dashboard"
                 st.session_state.usuario = email
@@ -666,8 +663,6 @@ elif st.session_state.pantalla == "login":
                 st.error("Contraseña incorrecta (Usa: `1234`).")
 
         st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Olvidaste tu contraseña? <b>Haz clic aquí</b></p>", unsafe_allow_html=True)
-
-# -------------------------------------------------------------------------
 # PANTALLA 2: DASHBOARDS SEGÚN EL ROL SELECCIONADO
 # -------------------------------------------------------------------------
 elif st.session_state.pantalla == "dashboard":
