@@ -496,28 +496,386 @@ elif st.session_state.pantalla == "dashboard":
     
     # --- 1. VISTA DE AGRICULTOR / CAFICULTOR ---
     if "Agricultor" in rol_actual:
-        st.title("👨‍🌾 Panel del Caficultor - agriTechGO")
-        st.success(f"Bienvenido, agricultor: **{st.session_state.usuario}**")
-        
+        from datetime import date
+        from html import escape
+        from uuid import uuid4
+
+        # FUNCIONES DEL MÓDULO
+        def agri_pesos(valor):
+            """Convierte un número al formato de pesos colombianos."""
+            return "$" + f"{valor:,.0f}".replace(",", ".") + " COP"
+
+        def agri_estado(cosecha):
+            """Una cosecha sin existencias siempre aparece agotada."""
+            if cosecha["cantidad"] <= 0:
+                return "Agotada"
+            return "Disponible" if cosecha["activa"] else "Pausada"
+
+        def agri_validar(finca, producto, cantidad, precio):
+            """Revisa los campos necesarios antes de registrar."""
+            errores = []
+            if not finca.strip():
+                errores.append("Escribe el nombre de la finca o lote.")
+            if not producto.strip():
+                errores.append("Escribe el nombre del producto.")
+            if cantidad <= 0:
+                errores.append("La cantidad debe ser mayor que cero.")
+            if precio <= 0:
+                errores.append("El precio debe ser mayor que cero.")
+            return errores
+
+        # DATOS TEMPORALES SEPARADOS POR USUARIO
+        agri_usuario = str(st.session_state.get("usuario", ""))
+
+        if "agri_datos" not in st.session_state:
+            st.session_state["agri_datos"] = {}
+
+        if agri_usuario not in st.session_state["agri_datos"]:
+            st.session_state["agri_datos"][agri_usuario] = {
+                "cosechas": [],
+                "aviso": ""
+            }
+
+        agri_datos = st.session_state["agri_datos"][agri_usuario]
+        agri_cosechas = agri_datos["cosechas"]
+
+        # ENCABEZADO: estilos exclusivos de esta tarjeta
+        st.markdown(
+            f"""
+            <div style="
+                background:#174B35;
+                padding:28px;
+                border-radius:18px;
+                margin-bottom:20px;
+            ">
+                <div style="color:#D5E8B8;font-size:15px;">
+                    AGRITECHGO · AGRICULTOR / CAFICULTOR
+                </div>
+                <div style="
+                    color:#FFFFFF;
+                    font-size:34px;
+                    font-weight:750;
+                    margin:8px 0;
+                ">
+                    Mi campo 🌱
+                </div>
+                <div style="color:#FFFFFF;font-size:17px;">
+                    Bienvenido, {escape(agri_usuario)}.
+                    Gestiona tus cosechas desde un solo lugar.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.caption(
+            "Prototipo: los registros son temporales y no se comparten "
+            "todavía con compradores. Al recargar la página o perder "
+            "la sesión, pueden desaparecer."
+        )
+
+        if agri_datos["aviso"]:
+            st.success(agri_datos["aviso"])
+            agri_datos["aviso"] = ""
+
+        # RESUMEN CALCULADO CON LOS REGISTROS DE ESTA SESIÓN
+        agri_disponibles = sum(
+            agri_estado(c) == "Disponible" for c in agri_cosechas
+        )
+        agri_fincas = {
+            c["finca"].strip().casefold() for c in agri_cosechas
+        }
+
+        agri_col1, agri_col2, agri_col3 = st.columns(3)
+        agri_col1.metric("Cosechas registradas", len(agri_cosechas))
+        agri_col2.metric("Cosechas disponibles", agri_disponibles)
+        agri_col3.metric("Fincas / lotes", len(agri_fincas))
+
         st.markdown("---")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Mis Lotes Registrados", "3 Fincas")
-        col2.metric("Cosecha Activa (Carga)", "45 Arrobas")
-        col3.metric("Ofertas de Compradores", "5 Pendientes")
-        
-        st.markdown("### ☕ Gestión de Cosechas y Lotes")
-        st.info("Aquí puedes publicar tus lotes de café pergamino o suave directamente al mercado sin intermediarios.")
-        
-        col_A, col_B = st.columns(2)
-        with col_A:
-            st.text_input("Nombre del Lote / Finca", "La Esperanza - Vereda Atalaya")
-            st.number_input("Cantidad disponible (Arrobas)", 1, 500, 45)
-        with col_B:
-            st.selectbox("Calidad del Grano", ["Café Especial (Exóticas)", "Café Estándar Premium", "Café Comercial"])
-            st.number_input("Precio por Arroba (COP)", 100000, 300000, 185000)
-            
-        if st.button("🚀 Publicar Cosecha al Mercado"):
-            st.success("¡Tu lote ha sido publicado con éxito para los compradores directos!")
+
+        agri_tab1, agri_tab2, agri_tab3, agri_tab4 = st.tabs([
+            "🌿 Mis cosechas",
+            "➕ Registrar cosecha",
+            "📦 Pedidos",
+            "💰 Pagos"
+        ])
+
+        # SECCIÓN 1: TARJETAS MIXTAS DE COSECHAS
+        with agri_tab1:
+            st.subheader("🌿 Mis cosechas")
+            st.write(
+                "Consulta tus productos, fotografías, precios "
+                "y disponibilidad."
+            )
+
+            if not agri_cosechas:
+                st.info(
+                    "Aún no tienes cosechas registradas. "
+                    "Ingresa a Registrar cosecha para comenzar."
+                )
+            else:
+                agri_filtro = st.selectbox(
+                    "Filtrar cosechas",
+                    ["Todas", "Disponible", "Pausada", "Agotada"],
+                    key=f"agri_filtro_{agri_usuario}"
+                )
+
+                agri_visibles = [
+                    c for c in agri_cosechas
+                    if agri_filtro == "Todas"
+                    or agri_estado(c) == agri_filtro
+                ]
+
+                if not agri_visibles:
+                    st.info("No hay cosechas con ese estado.")
+
+                for agri_c in agri_visibles:
+                    agri_id = agri_c["id"]
+                    agri_estado_actual = agri_estado(agri_c)
+
+                    # TARJETA PRINCIPAL
+                    with st.container(border=True):
+                        agri_foto_col, agri_info_col = st.columns(
+                            [1, 2],
+                            gap="large"
+                        )
+
+                        # COLUMNA DE FOTOGRAFÍA
+                        with agri_foto_col:
+                            if agri_c.get("foto"):
+                                st.image(
+                                    agri_c["foto"],
+                                    width=240
+                                )
+                            else:
+                                st.markdown(
+                                    """
+                                    <div style="
+                                        background:#EAF3E8;
+                                        border-radius:12px;
+                                        min-height:180px;
+                                        display:flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                        flex-direction:column;
+                                        color:#24543B;
+                                        text-align:center;
+                                        padding:15px;
+                                    ">
+                                        <div style="font-size:55px;">🌱</div>
+                                        <b>Fotografía pendiente</b>
+                                        <small>Agrega una imagen de tu producto</small>
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+
+                        # COLUMNA DE INFORMACIÓN
+                        with agri_info_col:
+                            st.markdown(
+                                f"### {agri_c['producto']}"
+                            )
+                            st.caption(
+                                f"🏡 {agri_c['finca']}"
+                            )
+
+                            if agri_estado_actual == "Disponible":
+                                st.success("● Disponible")
+                            elif agri_estado_actual == "Pausada":
+                                st.warning("● Publicación pausada")
+                            else:
+                                st.error("● Agotada")
+
+                            st.markdown(
+                                f"**{agri_pesos(agri_c['precio'])}**"
+                            )
+                            st.caption(
+                                f"Precio por {agri_c['unidad']}"
+                            )
+
+                            met1, met2 = st.columns(2)
+
+                            met1.metric(
+                                "Cantidad disponible",
+                                f"{agri_c['cantidad']:g} "
+                                f"{agri_c['unidad']}"
+                            )
+
+                            met2.metric(
+                                "Calidad",
+                                agri_c["calidad"]
+                            )
+
+                            st.caption(
+                                "📅 Cosecha: "
+                                + agri_c["fecha"].strftime("%d/%m/%Y")
+                            )
+
+                        # EDICIÓN DE LA COSECHA
+                        with st.expander("✏️ Editar información"):
+                            with st.form(
+                                f"agri_editar_{agri_id}"
+                            ):
+                                agri_nueva_cantidad = st.number_input(
+                                    "Cantidad disponible",
+                                    min_value=0.0,
+                                    value=float(agri_c["cantidad"]),
+                                    step=1.0
+                                )
+
+                                agri_nuevo_precio = st.number_input(
+                                    "Precio por unidad (COP)",
+                                    min_value=1,
+                                    value=int(agri_c["precio"]),
+                                    step=100
+                                )
+
+                                agri_activa = st.checkbox(
+                                    "Mantener disponible",
+                                    value=agri_c["activa"]
+                                )
+
+                                agri_guardar = st.form_submit_button(
+                                    "Guardar cambios",
+                                    use_container_width=True
+                                )
+
+                            if agri_guardar:
+                                agri_c["cantidad"] = agri_nueva_cantidad
+                                agri_c["precio"] = agri_nuevo_precio
+                                agri_c["activa"] = agri_activa
+
+                                agri_datos["aviso"] = (
+                                    "Información de la cosecha actualizada."
+                                )
+                                st.rerun()
+
+        # SECCIÓN 2: REGISTRO
+        with agri_tab2:
+            st.subheader("Registra tu cosecha")
+            st.write(
+                "Indica qué vendes, cuánto tienes disponible "
+                "y el precio de cada unidad."
+            )
+
+            with st.form(f"agri_registro_{agri_usuario}"):
+                agri_finca = st.text_input(
+                    "Nombre del lote / finca",
+                    placeholder="Ejemplo: Finca La Esperanza",
+                    max_chars=100
+                )
+                agri_producto = st.text_input(
+                    "Producto",
+                    placeholder="Ejemplo: Café pergamino, tomate o plátano",
+                    max_chars=80
+                )
+                agri_calidad = st.selectbox(
+                    "Calidad del grano — para café",
+                    [
+                        "No aplica",
+                        "Café Especial (Exóticas)",
+                        "Café Estándar Premium",
+                        "Café Comercial"
+                    ]
+                )
+                agri_unidad = st.selectbox(
+                    "Unidad de venta",
+                    ["kg", "arroba", "unidad"]
+                )
+                agri_cantidad = st.number_input(
+                    "Cantidad disponible en la unidad seleccionada",
+                    min_value=0.0,
+                    value=0.0,
+                    step=1.0
+                )
+                agri_precio = st.number_input(
+                    "Precio por unidad seleccionada (COP)",
+                    min_value=0,
+                    value=0,
+                    step=100
+                
+                )
+
+                agri_fecha = st.date_input(
+                 "Fecha de cosecha",
+                 value=date.today()
+                 
+                )
+
+                agri_foto = st.file_uploader(
+                    "📸 Fotografía del producto",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    help="Sube una fotografía de tu cosecha."
+                )
+
+                if agri_foto is not None:
+                    st.image(
+                        agri_foto,
+                        caption="Vista previa de tu producto",
+                        width=300
+                    )
+
+                st.caption(
+                    "El precio corresponde a una unidad de venta. "
+                    "No incluye cálculos de comisión ni transporte."
+                )
+
+                agri_registrar = st.form_submit_button(
+                    "🌱 Registrar cosecha",
+                    use_container_width=True
+                )
+
+            if agri_registrar:
+                agri_errores = agri_validar(
+                    agri_finca,
+                    agri_producto,
+                    agri_cantidad,
+                    agri_precio
+                )
+
+                if agri_errores:
+                    for agri_error in agri_errores:
+                        st.error(agri_error)
+                else:
+                    agri_cosechas.append({
+                        "id": uuid4().hex,
+                        "finca": agri_finca.strip(),
+                        "producto": agri_producto.strip(),
+                        "calidad": agri_calidad,
+                        "unidad": agri_unidad,
+                        "cantidad": agri_cantidad,
+                        "precio": agri_precio,
+                        "fecha": agri_fecha,
+                        "foto": (
+                            agri_foto.getvalue()
+                            if agri_foto is not None
+                            else None
+                        ),
+                        "activa": True
+                    })
+                    agri_datos["aviso"] = (
+                        "Cosecha registrada en esta sesión. "
+                        "Puedes consultarla en «Mis cosechas»."
+                    )
+                    st.rerun()
+
+        # SECCIÓN 3: PEDIDOS PENDIENTES DE INTEGRACIÓN
+        with agri_tab3:
+            st.subheader("Mis pedidos")
+            st.info("La recepción de pedidos todavía no está conectada.")
+            st.write(
+                "Aquí aparecerán el comprador, el producto solicitado, "
+                "la cantidad y el estado de cada pedido."
+            )
+
+        # SECCIÓN 4: PAGOS PENDIENTES DE INTEGRACIÓN
+        with agri_tab4:
+            st.subheader("Mis pagos")
+            st.info("Los pagos todavía no están conectados.")
+            st.write(
+                "Aquí podrás consultar los valores pendientes "
+                "y recibidos cuando se integre esta función."
+            )
 
     # --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
