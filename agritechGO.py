@@ -16,7 +16,8 @@ if "pantalla" not in st.session_state:
 
 def cop(valor):
     """Formatea un número como pesos colombianos: $1.500.000 COP"""
-    return f"${valor:,.0f} COP".replace(",", ".")
+    signo = "-" if valor < 0 else ""
+    return f"{signo}${abs(valor):,.0f} COP".replace(",", ".")
  
  
 def inv_init_estado(usuario):
@@ -27,6 +28,7 @@ def inv_init_estado(usuario):
     ss.setdefault("inv_wallet", {"saldo": 1_000_000, "movimientos": []})
     ss.setdefault("inv_siguiendo", set())   # ids de fincas seguidas
     ss.setdefault("inv_inversiones", [])    # inversiones realizadas
+    ss.setdefault("inv_compras", [])        # compras de compradores a las fincas
     # Fincas de ejemplo. Idealmente las publica el perfil Agricultor.
     ss.setdefault("inv_fincas", [
         {
@@ -34,18 +36,21 @@ def inv_init_estado(usuario):
             "ubicacion": "Vereda Las Margaritas", "proyecto": "Infraestructura de secado solar",
             "meta": 5_000_000, "recaudado": 3_750_000, "rentabilidad": 0.185,
             "riesgo": "Bajo", "avance": 0.60,
+            "pct_inv": 0.40, "ventas": 9_200_000,
         },
         {
             "id": 2, "nombre": "Finca El Mirador", "agricultor": "Doña Marta",
             "ubicacion": "Vereda El Mirador", "proyecto": "Sistema de riego por goteo",
             "meta": 8_000_000, "recaudado": 2_400_000, "rentabilidad": 0.21,
             "riesgo": "Medio", "avance": 0.30,
+            "pct_inv": 0.40, "ventas": 5_500_000,
         },
         {
             "id": 3, "nombre": "Finca Buenavista", "agricultor": "Don Jorge",
             "ubicacion": "Vereda Buenavista", "proyecto": "Beneficiadero ecológico de café",
             "meta": 6_000_000, "recaudado": 5_100_000, "rentabilidad": 0.17,
             "riesgo": "Bajo", "avance": 0.80,
+            "pct_inv": 0.40, "ventas": 14_500_000,
         },
     ])
  
@@ -63,11 +68,51 @@ def inv_buscar_finca(finca_id):
     return next(f for f in st.session_state.inv_fincas if f["id"] == finca_id)
  
  
-def inv_valor_actual(inv):
-    """Valor simulado: capital + ganancia proporcional al avance de la cosecha."""
+def inv_ventas_esperadas(finca):
+    """Ventas totales que necesita la finca para cumplir la rentabilidad prometida."""
+    pct = finca.get("pct_inv", 0.40)
+    return finca["meta"] * (1 + finca["rentabilidad"]) / pct
+ 
+ 
+def inv_registrar_compra(finca_id, monto, comprador="Comprador"):
+    """Registra una compra hecha a una finca. Suma a las ventas de la finca y,
+    por lo tanto, aumenta el dinero que generan las inversiones.
+    >>> El perfil Comprador puede llamar a esta función cuando se confirme una compra."""
+    finca = inv_buscar_finca(finca_id)
+    finca["ventas"] = finca.get("ventas", 0) + monto
+    st.session_state.setdefault("inv_compras", []).insert(0, {
+        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "finca_id": finca_id,
+        "Comprador": comprador,
+        "Monto": monto,
+    })
+ 
+ 
+def inv_calcular(inv):
+    """Calcula cuánto dinero genera una inversión y si va ganando o perdiendo.
+ 
+    Modelo (simulado): los inversionistas reciben un % de las ventas de la finca
+    (pct_inv), repartido según lo que aportó cada uno sobre la meta del proyecto.
+      - generado   = lo que la inversión ha producido con las ventas de hoy
+      - proyectado = lo que producirá al cierre si las ventas siguen al ritmo actual
+      - resultado  = proyectado - capital invertido (positivo = ganancia, negativo = pérdida)
+    """
     finca = inv_buscar_finca(inv["finca_id"])
-    ganancia_final = inv["monto"] * inv["rentabilidad"]
-    return inv["monto"] + ganancia_final * finca["avance"]
+    participacion = inv["monto"] / finca["meta"]
+    pct = finca.get("pct_inv", 0.40)
+    ventas = finca.get("ventas", 0)
+    ventas_proy = ventas / finca["avance"] if finca["avance"] > 0 else ventas
+ 
+    generado = participacion * pct * ventas
+    proyectado = participacion * pct * ventas_proy
+    return {
+        "finca": finca,
+        "participacion": participacion,
+        "generado": generado,
+        "recuperado": generado / inv["monto"] if inv["monto"] else 0,
+        "proyectado": proyectado,
+        "resultado": proyectado - inv["monto"],
+    }
  
  
 def inv_tab_perfil():
@@ -121,6 +166,7 @@ def inv_tab_fincas():
             c1.markdown(f"#### {f['nombre']}")
             c1.caption(f"👨‍🌾 {f['agricultor']} · 📍 {f['ubicacion']}")
             c1.write(f"**Proyecto:** {f['proyecto']}")
+            c1.caption(f"Los inversionistas reciben el {f.get('pct_inv', 0.40)*100:.0f}% de las ventas de la cosecha.")
  
             siguiendo = f["id"] in ss.inv_siguiendo
             if c2.button("⭐ Dejar de seguir" if siguiendo else "☆ Seguir", key=f"seguir_{f['id']}"):
@@ -178,36 +224,126 @@ def inv_tab_inversiones():
         st.info("Aún no has invertido. Ve a la pestaña **Fincas** para empezar.")
         return
  
+    st.caption(
+        "Tus ingresos salen de las compras que los compradores le hacen a cada finca: "
+        "los inversionistas reciben un porcentaje de esas ventas, según lo que aportó cada uno."
+    )
+ 
+    # ---- Cálculo por inversión ----
     filas = []
     for inv in ss.inv_inversiones:
-        finca = inv_buscar_finca(inv["finca_id"])
-        actual = inv_valor_actual(inv)
+        c = inv_calcular(inv)
+        resultado = c["resultado"]
+        if resultado > 0:
+            estado = "🟢 Ganando"
+        elif resultado < 0:
+            estado = "🔴 Perdiendo"
+        else:
+            estado = "⚪ En equilibrio"
         filas.append({
-            "Finca": finca["nombre"],
-            "Proyecto": finca["proyecto"],
+            "Finca": c["finca"]["nombre"],
             "Fecha": inv["fecha"],
             "Invertido": inv["monto"],
-            "Valor actual": round(actual),
-            "Ganancia": round(actual - inv["monto"]),
-            "Rentab. E.A.": f"{inv['rentabilidad']*100:.1f}%",
-            "Avance cosecha": f"{finca['avance']*100:.0f}%",
+            "Dinero generado": round(c["generado"]),
+            "Recuperado": c["recuperado"],
+            "Proyección al cierre": round(c["proyectado"]),
+            "Ganancia / Pérdida": round(resultado),
+            "Estado": estado,
         })
     df = pd.DataFrame(filas)
  
     total_inv = df["Invertido"].sum()
-    total_act = df["Valor actual"].sum()
-    ganancia = total_act - total_inv
+    total_gen = df["Dinero generado"].sum()
+    total_proy = df["Proyección al cierre"].sum()
+    total_res = df["Ganancia / Pérdida"].sum()
+    pct_res = (total_res / total_inv) * 100
  
+    # ---- Resumen general ----
     c1, c2, c3 = st.columns(3)
     c1.metric("Total invertido", cop(total_inv))
-    c2.metric("Valor actual", cop(total_act))
-    c3.metric("Ganancia acumulada", cop(ganancia), delta=f"{(ganancia/total_inv)*100:.1f}%")
+    c2.metric("Dinero generado hasta hoy", cop(total_gen),
+              help="Lo que tus inversiones han producido con las compras realizadas hasta ahora.")
+    c3.metric("Ganancia / Pérdida proyectada", cop(total_res), delta=f"{pct_res:+.1f}%",
+              help="Lo que ganarás o perderás al cierre de la cosecha si las ventas siguen al ritmo actual.")
  
-    st.markdown("#### Detalle")
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.progress(min(total_gen / total_inv, 1.0),
+                text=f"Has recuperado el {total_gen / total_inv * 100:.0f}% de tu capital "
+                     f"({cop(total_gen)} de {cop(total_inv)})")
  
-    st.markdown("#### Invertido por finca")
-    st.bar_chart(df.groupby("Finca")["Invertido"].sum())
+    if total_res > 0:
+        st.success(f"📈 Tus inversiones van **ganando**: proyectas {cop(total_proy)} al cierre, "
+                   f"es decir {cop(total_res)} por encima de lo invertido.")
+    elif total_res < 0:
+        st.error(f"📉 Tus inversiones van **perdiendo**: proyectas {cop(total_proy)} al cierre, "
+                 f"es decir {cop(abs(total_res))} por debajo de lo invertido.")
+    else:
+        st.info("Tus inversiones están en equilibrio.")
+ 
+    # ---- Detalle ----
+    st.markdown("#### Detalle por inversión")
+    df_vista = df.copy()
+    for col in ["Invertido", "Dinero generado", "Proyección al cierre", "Ganancia / Pérdida"]:
+        df_vista[col] = df_vista[col].apply(cop)
+    df_vista["Recuperado"] = df_vista["Recuperado"].apply(lambda x: f"{x*100:.0f}%")
+    st.dataframe(df_vista, use_container_width=True, hide_index=True)
+ 
+    st.markdown("#### Invertido vs. dinero generado vs. proyección")
+    st.bar_chart(df.groupby("Finca")[["Invertido", "Dinero generado", "Proyección al cierre"]].sum())
+ 
+    # ---- ¿Por qué gano o pierdo? ----
+    st.markdown("#### ¿Cómo van las ventas de tus fincas?")
+    ids = sorted({inv["finca_id"] for inv in ss.inv_inversiones})
+    filas_v = []
+    for fid in ids:
+        f = inv_buscar_finca(fid)
+        ventas = f.get("ventas", 0)
+        esperadas_hoy = inv_ventas_esperadas(f) * f["avance"]
+        filas_v.append({
+            "Finca": f["nombre"],
+            "Avance de cosecha": f"{f['avance']*100:.0f}%",
+            "Ventas acumuladas": cop(ventas),
+            "Ventas esperadas a hoy": cop(esperadas_hoy),
+            "Ritmo de ventas": "✅ Por encima de lo esperado" if ventas >= esperadas_hoy
+                               else "⚠️ Por debajo de lo esperado",
+        })
+    st.dataframe(pd.DataFrame(filas_v), use_container_width=True, hide_index=True)
+    st.caption("Si las ventas van por debajo de lo esperado, la inversión proyecta pérdida; "
+               "si van por encima, proyecta ganancia.")
+ 
+    # ---- Compras que generan tus ingresos ----
+    st.markdown("#### 🛒 Compras que generan tus ingresos")
+    compras = [c for c in ss.get("inv_compras", []) if c["finca_id"] in ids]
+    if compras:
+        filas_c = []
+        for c in compras:
+            f = inv_buscar_finca(c["finca_id"])
+            aportado = sum(i["monto"] for i in ss.inv_inversiones if i["finca_id"] == c["finca_id"])
+            tu_parte = (aportado / f["meta"]) * f.get("pct_inv", 0.40) * c["Monto"]
+            filas_c.append({
+                "Fecha": c["Fecha"],
+                "Finca": f["nombre"],
+                "Comprador": c["Comprador"],
+                "Valor de la compra": cop(c["Monto"]),
+                "Tu parte": cop(round(tu_parte)),
+            })
+        st.dataframe(pd.DataFrame(filas_c), use_container_width=True, hide_index=True)
+    else:
+        st.caption("Todavía no hay compras nuevas registradas en tus fincas.")
+ 
+    # ---- Simulador (solo demo) ----
+    with st.expander("🧪 Simular una compra (solo para la demo)"):
+        st.caption("Sirve para ver cómo cambian tus ganancias cuando un comprador le compra a una de tus fincas.")
+        opciones = {inv_buscar_finca(fid)["nombre"]: fid for fid in ids}
+        nombre_sel = st.selectbox("Finca", list(opciones.keys()), key="sim_finca")
+        monto_c = st.number_input("Valor de la compra (COP)", min_value=0, step=100_000,
+                                  value=500_000, key="sim_monto")
+        comprador = st.text_input("Comprador", value="Comprador demo", key="sim_comprador")
+        if st.button("Registrar compra", key="sim_btn"):
+            if monto_c > 0:
+                inv_registrar_compra(opciones[nombre_sel], monto_c, comprador.strip() or "Comprador")
+                st.rerun()
+            else:
+                st.error("Ingresa un valor mayor a 0.")
  
  
 def inv_tab_wallet():
@@ -507,10 +643,10 @@ elif st.session_state.pantalla == "login":
             rol = st.selectbox(
                 "Selecciona tu perfil en la plataforma:",
                 [
-                    "👨‍🌾 Agricultor / Caficultor", 
-                    "🛒 Comprador Directo", 
-                    "📈 Inversionista Agro", 
-                    "🛠️ Administradores (Equipo)"
+                    " Agricultor / Caficultor", 
+                    " Comprador Directo", 
+                    " Inversionista Agro", 
+                    " Administradores (Equipo)"
                 ]
             )
             
@@ -939,28 +1075,64 @@ elif st.session_state.pantalla == "dashboard":
                 "y recibidos cuando se integre esta función."
             )
 
-    # --- 2. VISTA DE COMPRADOR DIRECTO ---
+   # --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
-        st.title("🛒 Mercado de Café Directo - agriTechGO")
+        st.title("🛒 Mercado de Café y Productos - agriTechGO")
         st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
         
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Caficultores Disponibles", "18 Aliados")
-        col2.metric("Kilos Adquiridos", "1,200 kg")
-        col3.metric("Ahorro Intermediarios", "14%")
+        col1.metric("Aliados Regionales", "Norte de Santander")
+        col2.metric("Modelo", "Comercio Justo Directo")
+        col3.metric("Ahorro Intermediarios", "15% - 20%")
 
-        st.markdown("###  Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
-        
-        # Simulando una tablita o tarjetas de café
-        st.markdown("""
-        | Finca / Productor | Variedad | Calidad | Precio / Arroba | Estado | Acción |
-        | :--- | :--- | :--- | :--- | :--- | :--- |
-        | **Finca El Mirador** | Castillo | Especial | \$190,000 COP | Disponible | 🛒 Comprar |
-        | **Café San Isidro** | Caturra | Premium | \$175,000 COP | Disponible | 🛒 Comprar |
-        | **Asociación Motilones** | Borbón | Exótico | \$220,000 COP | Disponible | 🛒 Comprar |
-        """)
-        
+        st.markdown("### 🌾 Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
+
+        # Obtenemos las cosechas reales publicadas por los agricultores en la sesión
+        cosechas_disponibles = comun_listar_cosechas(solo_disponibles=True)
+
+        if not cosechas_disponibles:
+            st.info("⚠️ Aún no hay cosechas publicadas en la plataforma. ¡Pídele a Jonathan que registre una cosecha en su vista de Agricultor para verla aquí en tiempo real!")
+        else:
+            # Barra de búsqueda superior inspirada en tu diseño visual
+            busqueda = st.text_input("🔍 Buscar producto, finca o variedad...", placeholder="Ej. Café, Finca El Mirador, Caturra...")
+            
+            if busqueda:
+                cosechas_disponibles = [
+                    c for c in cosechas_disponibles 
+                    if busqueda.lower() in c['producto'].lower() or busqueda.lower() in c['finca'].lower()
+                ]
+
+            if not cosechas_disponibles:
+                st.warning("No se encontraron productos que coincidan con tu búsqueda.")
+            else:
+                # Mostrar en tarjetas organizadas en filas de 3 columnas (Grid visual)
+                cols = st.columns(3)
+                for idx, cosecha in enumerate(cosechas_disponibles):
+                    col_actual = cols[idx % 3]
+                    with col_actual:
+                        with st.container(border=True):
+                            st.markdown(f"#### 📦 {cosecha['producto']}")
+                            st.caption(f"🏡 **{cosecha['finca']}**")
+                            
+                            # Mostrar imagen de la cosecha si fue cargada
+                            if cosecha.get("foto"):
+                                st.image(cosecha["foto"], use_container_width=True)
+                            else:
+                                st.markdown("""
+                                    <div style="background:#EAF3E8; border-radius:8px; height:120px; display:flex; align-items:center; justify-content:center; color:#24543B;">
+                                        <b>🌱 Cosecha Local</b>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                
+                            st.write(f"**Precio:** {cop(cosecha['precio'])} por {cosecha['unidad']}")
+                            st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
+                            st.markdown(f"**Calidad:** {cosecha['calidad']}")
+                            
+                            if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
+                                st.success(f"¡Compra simulada con éxito! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+
+        st.markdown("---")
         if st.button("📦 Ver mis pedidos en tránsito"):
             st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
 
@@ -973,7 +1145,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_init_estado(st.session_state.get("usuario", "Usuario_Demo"))
 
         tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
-            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
+            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", " Wallet"]
         )
         with tab_perfil:
             inv_tab_perfil()
