@@ -983,4 +983,4 @@ elif st.session_state.pantalla == "dashboard":
 
 
 
-print(".")
+print("..")
