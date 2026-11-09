@@ -937,7 +937,7 @@ elif st.session_state.pantalla == "dashboard":
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Usuarios Totales", "142")
         col2.metric("Transacciones", "38")
-        col3.metric("Estado del Sistema", "Óptimo 🟢")
+        col3.metric("Estado del Sistema", "Óptimo ")
         col4.metric("Versión App", "v1.0.0 Pro")
 
         st.markdown("###  Equipo de Desarrollo (Ingeniería de Sistemas)")
