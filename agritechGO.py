@@ -10,7 +10,7 @@ RUTA_LOGO = "logo.png"
 
 if "pantalla" not in st.session_state:
     st.session_state.pantalla = "splash"
-
+print("hola")
 # -------------------------------------------------------------------------
 # PANTALLA DE CARGA (SPLASH SCREEN) CON PLANTA VECTORIAL ANIMADA
 # -------------------------------------------------------------------------
