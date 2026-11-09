@@ -253,6 +253,48 @@ def inv_tab_wallet():
     else:
         st.caption("Sin movimientos todavía.")    
 
+# ---------------------------------------------------------------
+# CONSULTAS COMPARTIDAS DE COSECHAS — PROTOTIPO EN UNA SESIÓN
+# ---------------------------------------------------------------
+def comun_estado_cosecha(cosecha):
+    """Calcula el estado usando cantidad y disponibilidad."""
+    if cosecha["cantidad"] <= 0:
+        return "Agotada"
+
+    return "Disponible" if cosecha["activa"] else "Pausada"
+
+
+def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
+    """
+    Consulta las cosechas registradas en esta sesión.
+
+    agricultor_id:
+        None = todos los agricultores de la sesión.
+        Un usuario = únicamente sus cosechas.
+
+    Devuelve copias para evitar modificaciones accidentales
+    desde las pantallas que solo consultan.
+    """
+    resultados = []
+    datos_agricultores = st.session_state.get("agri_datos", {})
+
+    for propietario, datos in datos_agricultores.items():
+        if agricultor_id is not None and propietario != agricultor_id:
+            continue
+
+        for cosecha in datos.get("cosechas", []):
+            registro = dict(cosecha)
+
+            # Identificador provisional: usuario del login actual.
+            registro["agricultor_id"] = propietario
+            registro["estado"] = comun_estado_cosecha(registro)
+
+            if solo_disponibles and registro["estado"] != "Disponible":
+                continue
+
+            resultados.append(registro)
+
+    return resultados
 
 # -------------------------------------------------------------------------
 # PANTALLA DE CARGA (SPLASH SCREEN) CON PLANTA VECTORIAL ANIMADA
@@ -860,6 +902,24 @@ elif st.session_state.pantalla == "dashboard":
                         "Puedes consultarla en «Mis cosechas»."
                     )
                     st.rerun()
+
+
+
+
+
+
+            resultados = comun_listar_cosechas(
+                agricultor_id=agri_usuario,
+                solo_disponibles=True
+            )
+            st.write("Cosechas disponibles encontradas:", len(resultados))
+
+            for cosecha in resultados:
+                st.write(
+                    f"{cosecha['producto']} | "
+                    f"{cosecha['cantidad']:g} {cosecha['unidad']} | "
+                    f"{cosecha['estado']}"
+                )
 
         # SECCIÓN 3: PEDIDOS PENDIENTES DE INTEGRACIÓN
         with agri_tab3:
