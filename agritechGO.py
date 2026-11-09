@@ -601,10 +601,10 @@ elif st.session_state.pantalla == "login":
             rol = st.selectbox(
                 "Selecciona tu perfil en la plataforma:",
                 [
-                    "👨‍🌾 Agricultor / Caficultor", 
-                    "🛒 Comprador Directo", 
-                    "📈 Inversionista Agro", 
-                    "🛠️ Administradores (Equipo)"
+                    " Agricultor / Caficultor", 
+                    " Comprador Directo", 
+                    " Inversionista Agro", 
+                    " Administradores (Equipo)"
                 ]
             )
             
