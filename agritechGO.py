@@ -558,11 +558,11 @@ elif st.session_state.pantalla == "dashboard":
                 agri_fecha = st.date_input(
                  "Fecha de cosecha",
                  value=date.today()
-                 
+
                 )
 
                 agri_foto = st.file_uploader(
-                    "📸 Fotografía del producto",
+                    "Fotografía del producto",
                     type=["png", "jpg", "jpeg", "webp"],
                     help="Sube una fotografía de tu cosecha."
                 )
