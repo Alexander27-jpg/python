@@ -679,6 +679,296 @@ elif st.session_state.pantalla == "dashboard":
         if st.button("💰 Invertir en este Proyecto"):
             st.success("¡Gracias por impulsar el campo! Transacción simulada con éxito.")
 
+    """
+Módulo del perfil Inversionista - agriTechGO
+Uso en tu app principal:
+
+    from inversionista import vista_inversionista
+    ...
+    elif "Inversionista" in rol_actual:
+        vista_inversionista(st.session_state.usuario)
+"""
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+
+# ---------------------------------------------------------------
+# Utilidades
+# ---------------------------------------------------------------
+def cop(valor):
+    """Formatea un número como pesos colombianos: $1.500.000 COP"""
+    return f"${valor:,.0f} COP".replace(",", ".")
+
+
+def _init_estado(usuario):
+    """Crea los datos del inversionista la primera vez que entra.
+    NOTA: cuando tengan base de datos, reemplacen esto por consultas."""
+    ss = st.session_state
+    ss.setdefault("inv_perfil", {"nombre": usuario, "descripcion": "", "foto": None})
+    ss.setdefault("inv_wallet", {"saldo": 1_000_000, "movimientos": []})
+    ss.setdefault("inv_siguiendo", set())   # ids de fincas seguidas
+    ss.setdefault("inv_inversiones", [])    # lista de inversiones realizadas
+    # Fincas de ejemplo. Idealmente las publica el perfil Agricultor.
+    ss.setdefault("inv_fincas", [
+        {
+            "id": 1, "nombre": "Finca Las Margaritas", "agricultor": "Don Aurelio",
+            "ubicacion": "Vereda Las Margaritas", "proyecto": "Infraestructura de secado solar",
+            "meta": 5_000_000, "recaudado": 3_750_000, "rentabilidad": 0.185,
+            "riesgo": "Bajo", "avance": 0.60,
+        },
+        {
+            "id": 2, "nombre": "Finca El Mirador", "agricultor": "Doña Marta",
+            "ubicacion": "Vereda El Mirador", "proyecto": "Sistema de riego por goteo",
+            "meta": 8_000_000, "recaudado": 2_400_000, "rentabilidad": 0.21,
+            "riesgo": "Medio", "avance": 0.30,
+        },
+        {
+            "id": 3, "nombre": "Finca Buenavista", "agricultor": "Don Jorge",
+            "ubicacion": "Vereda Buenavista", "proyecto": "Beneficiadero ecológico de café",
+            "meta": 6_000_000, "recaudado": 5_100_000, "rentabilidad": 0.17,
+            "riesgo": "Bajo", "avance": 0.80,
+        },
+    ])
+
+
+def _registrar_movimiento(tipo, monto, detalle):
+    st.session_state.inv_wallet["movimientos"].insert(0, {
+        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "Tipo": tipo,
+        "Monto": monto,
+        "Detalle": detalle,
+    })
+
+
+def _buscar_finca(finca_id):
+    return next(f for f in st.session_state.inv_fincas if f["id"] == finca_id)
+
+
+def _valor_actual(inv):
+    """Valor simulado: capital + ganancia proporcional al avance de la cosecha."""
+    finca = _buscar_finca(inv["finca_id"])
+    ganancia_final = inv["monto"] * inv["rentabilidad"]
+    return inv["monto"] + ganancia_final * finca["avance"]
+
+
+# ---------------------------------------------------------------
+# Pestaña 1: Perfil
+# ---------------------------------------------------------------
+def _tab_perfil():
+    perfil = st.session_state.inv_perfil
+    st.subheader("👤 Mi perfil")
+
+    col_foto, col_datos = st.columns([1, 2])
+
+    with col_foto:
+        if perfil["foto"]:
+            st.image(perfil["foto"], use_container_width=True)
+        else:
+            st.info("Aún no tienes foto de perfil.")
+        archivo = st.file_uploader("Subir foto", type=["png", "jpg", "jpeg"], key="inv_foto_uploader")
+        if archivo is not None and st.button("📷 Guardar foto"):
+            perfil["foto"] = archivo.getvalue()
+            st.success("Foto actualizada.")
+            st.rerun()
+
+    with col_datos:
+        nombre = st.text_input("Nombre a mostrar", value=perfil["nombre"])
+        descripcion = st.text_area(
+            "Descripción", value=perfil["descripcion"], height=150,
+            placeholder="Cuéntales a los agricultores quién eres y por qué te interesa invertir en el campo...",
+        )
+        if st.button("💾 Guardar perfil"):
+            perfil["nombre"] = nombre.strip() or perfil["nombre"]
+            perfil["descripcion"] = descripcion
+            st.success("Perfil guardado.")
+
+    st.markdown("---")
+    st.markdown(f"### {perfil['nombre']}")
+    st.write(perfil["descripcion"] or "_Sin descripción todavía._")
+
+
+# ---------------------------------------------------------------
+# Pestaña 2: Explorar fincas (seguir e invertir)
+# ---------------------------------------------------------------
+def _tab_fincas():
+    ss = st.session_state
+    st.subheader("🌱 Fincas y proyectos")
+
+    filtro = st.radio("Mostrar", ["Todas", "Solo las que sigo"], horizontal=True)
+
+    fincas = ss.inv_fincas
+    if filtro == "Solo las que sigo":
+        fincas = [f for f in fincas if f["id"] in ss.inv_siguiendo]
+        if not fincas:
+            st.info("Todavía no sigues ninguna finca.")
+
+    for f in fincas:
+        with st.container(border=True):
+            c1, c2 = st.columns([3, 1])
+            c1.markdown(f"#### {f['nombre']}")
+            c1.caption(f"👨‍🌾 {f['agricultor']} · 📍 {f['ubicacion']}")
+            c1.write(f"**Proyecto:** {f['proyecto']}")
+
+            siguiendo = f["id"] in ss.inv_siguiendo
+            if c2.button("⭐ Dejar de seguir" if siguiendo else "☆ Seguir", key=f"seguir_{f['id']}"):
+                if siguiendo:
+                    ss.inv_siguiendo.discard(f["id"])
+                else:
+                    ss.inv_siguiendo.add(f["id"])
+                st.rerun()
+
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Rentabilidad", f"{f['rentabilidad']*100:.1f}% E.A.")
+            m2.metric("Riesgo", f["riesgo"])
+            m3.metric("Avance de cosecha", f"{f['avance']*100:.0f}%")
+
+            progreso = min(f["recaudado"] / f["meta"], 1.0)
+            st.progress(progreso, text=f"{cop(f['recaudado'])} de {cop(f['meta'])} ({progreso*100:.0f}%)")
+
+            faltante = f["meta"] - f["recaudado"]
+            if faltante <= 0:
+                st.success("✅ Meta alcanzada")
+                continue
+
+            ci1, ci2 = st.columns([2, 1])
+            monto = ci1.number_input(
+                "Monto a invertir (COP)", min_value=0, max_value=int(faltante),
+                step=50_000, key=f"monto_{f['id']}",
+            )
+            ci2.write("")
+            ci2.write("")
+            if ci2.button("💰 Invertir", key=f"invertir_{f['id']}"):
+                if monto <= 0:
+                    st.error("Ingresa un monto mayor a 0.")
+                elif monto > ss.inv_wallet["saldo"]:
+                    st.error("Saldo insuficiente en tu wallet. Recarga para continuar.")
+                else:
+                    ss.inv_wallet["saldo"] -= monto
+                    f["recaudado"] += monto
+                    ss.inv_inversiones.append({
+                        "finca_id": f["id"],
+                        "monto": monto,
+                        "rentabilidad": f["rentabilidad"],
+                        "fecha": datetime.now().strftime("%Y-%m-%d"),
+                    })
+                    _registrar_movimiento("Inversión", -monto, f"{f['nombre']} - {f['proyecto']}")
+                    ss.inv_siguiendo.add(f["id"])  # al invertir, la sigue automáticamente
+                    st.success(f"¡Invertiste {cop(monto)} en {f['nombre']}!")
+                    st.rerun()
+
+
+# ---------------------------------------------------------------
+# Pestaña 3: Mis inversiones
+# ---------------------------------------------------------------
+def _tab_inversiones():
+    ss = st.session_state
+    st.subheader("📊 Mis inversiones")
+
+    if not ss.inv_inversiones:
+        st.info("Aún no has invertido. Ve a la pestaña **Fincas** para empezar.")
+        return
+
+    filas = []
+    for inv in ss.inv_inversiones:
+        finca = _buscar_finca(inv["finca_id"])
+        actual = _valor_actual(inv)
+        filas.append({
+            "Finca": finca["nombre"],
+            "Proyecto": finca["proyecto"],
+            "Fecha": inv["fecha"],
+            "Invertido": inv["monto"],
+            "Valor actual": round(actual),
+            "Ganancia": round(actual - inv["monto"]),
+            "Rentab. E.A.": f"{inv['rentabilidad']*100:.1f}%",
+            "Avance cosecha": f"{finca['avance']*100:.0f}%",
+        })
+    df = pd.DataFrame(filas)
+
+    total_inv = df["Invertido"].sum()
+    total_act = df["Valor actual"].sum()
+    ganancia = total_act - total_inv
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total invertido", cop(total_inv))
+    c2.metric("Valor actual", cop(total_act))
+    c3.metric("Ganancia acumulada", cop(ganancia), delta=f"{(ganancia/total_inv)*100:.1f}%")
+
+    st.markdown("#### Detalle")
+    st.dataframe(df, use_container_width=True, hide_index=True)
+
+    st.markdown("#### Invertido por finca")
+    st.bar_chart(df.groupby("Finca")["Invertido"].sum())
+
+
+# ---------------------------------------------------------------
+# Pestaña 4: Wallet
+# ---------------------------------------------------------------
+def _tab_wallet():
+    wallet = st.session_state.inv_wallet
+    st.subheader("👛 Mi wallet digital")
+    st.metric("Saldo disponible", cop(wallet["saldo"]))
+
+    col_dep, col_ret = st.columns(2)
+
+    with col_dep:
+        with st.container(border=True):
+            st.markdown("**➕ Recargar saldo**")
+            dep = st.number_input("Monto a recargar", min_value=0, step=50_000, key="wallet_dep")
+            if st.button("Recargar"):
+                if dep > 0:
+                    wallet["saldo"] += dep
+                    _registrar_movimiento("Recarga", dep, "Recarga simulada")
+                    st.success(f"Recargaste {cop(dep)}.")
+                    st.rerun()
+                else:
+                    st.error("Ingresa un monto válido.")
+
+    with col_ret:
+        with st.container(border=True):
+            st.markdown("**➖ Retirar saldo**")
+            ret = st.number_input("Monto a retirar", min_value=0, step=50_000, key="wallet_ret")
+            if st.button("Retirar"):
+                if ret <= 0:
+                    st.error("Ingresa un monto válido.")
+                elif ret > wallet["saldo"]:
+                    st.error("No tienes saldo suficiente.")
+                else:
+                    wallet["saldo"] -= ret
+                    _registrar_movimiento("Retiro", -ret, "Retiro simulado")
+                    st.success(f"Retiraste {cop(ret)}.")
+                    st.rerun()
+
+    st.markdown("#### Historial de movimientos")
+    if wallet["movimientos"]:
+        df = pd.DataFrame(wallet["movimientos"])
+        df["Monto"] = df["Monto"].apply(cop)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+    else:
+        st.caption("Sin movimientos todavía.")
+
+
+# ---------------------------------------------------------------
+# Vista principal (la que llamas desde tu app)
+# ---------------------------------------------------------------
+def vista_inversionista(usuario):
+    _init_estado(usuario)
+
+    st.title("📈 Panel de Inversión Agrícola - agriTechGO")
+    st.success(f"Perfil Inversionista: **{st.session_state.inv_perfil['nombre']}**")
+
+    tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
+        ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
+    )
+    with tab_perfil:
+        _tab_perfil()
+    with tab_fincas:
+        _tab_fincas()
+    with tab_inv:
+        _tab_inversiones()
+    with tab_wallet:
+        _tab_wallet()        
+
     # --- 4. VISTA DE ADMINISTRADORES (EQUIPO) ---
     elif "Administradores" in rol_actual:
         st.title(" Panel de Control y Administración - agriTechGO")
@@ -708,4 +998,7 @@ elif st.session_state.pantalla == "dashboard":
     st.markdown("---")
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
         st.session_state.pantalla = "splash"
+
         st.rerun()
+
+
