@@ -17,7 +17,40 @@ if "pantalla" not in st.session_state:
 def cop(valor):
     """Formatea un número como pesos colombianos: $1.500.000 COP"""
     return f"${valor:,.0f} COP".replace(",", ".")
+
+# ==========================================
+#  FUNCIONES COMPARTIDAS / UTILIDADES
+# ==========================================
  
+def comun_estado_cosecha(cosecha):
+    """Calcula el estado usando cantidad y disponibilidad."""
+    if cosecha["cantidad"] <= 0:
+        return "Agotada"
+    return "Disponible" if cosecha.get("activa", True) else "Pausada"
+
+def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
+    """Consulta las cosechas registradas en la sesión por todos los agricultores."""
+    resultados = []
+    datos_agricultores = st.session_state.get("agri_datos", {})
+
+    for propietario, datos in datos_agricultores.items():
+        if agricultor_id is not None and propietario != agricultor_id:
+            continue
+
+        for cosecha in datos.get("cosechas", []):
+            registro = dict(cosecha)
+            registro["agricultor_id"] = propietario
+            registro["estado"] = comun_estado_cosecha(registro)
+
+            if solo_disponibles and registro["estado"] != "Disponible":
+                continue
+
+            resultados.append(registro)
+
+    return resultados
+
+
+
  
 def inv_init_estado(usuario):
     """Crea los datos del inversionista la primera vez que entra.
@@ -879,28 +912,64 @@ elif st.session_state.pantalla == "dashboard":
                 "y recibidos cuando se integre esta función."
             )
 
-    # --- 2. VISTA DE COMPRADOR DIRECTO ---
+   # --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
-        st.title("🛒 Mercado de Café Directo - agriTechGO")
+        st.title("🛒 Mercado de Café y Productos - agriTechGO")
         st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
         
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
-        col1.metric("Caficultores Disponibles", "18 Aliados")
-        col2.metric("Kilos Adquiridos", "1,200 kg")
-        col3.metric("Ahorro Intermediarios", "14%")
+        col1.metric("Aliados Regionales", "Norte de Santander")
+        col2.metric("Modelo", "Comercio Justo Directo")
+        col3.metric("Ahorro Intermediarios", "15% - 20%")
 
         st.markdown("### 🌾 Lotes Disponibles de la Región (Cúcuta y Norte de Santander)")
-        
-        # Simulando una tablita o tarjetas de café
-        st.markdown("""
-        | Finca / Productor | Variedad | Calidad | Precio / Arroba | Estado | Acción |
-        | :--- | :--- | :--- | :--- | :--- | :--- |
-        | **Finca El Mirador** | Castillo | Especial | \$190,000 COP | Disponible | 🛒 Comprar |
-        | **Café San Isidro** | Caturra | Premium | \$175,000 COP | Disponible | 🛒 Comprar |
-        | **Asociación Motilones** | Borbón | Exótico | \$220,000 COP | Disponible | 🛒 Comprar |
-        """)
-        
+
+        # Obtenemos las cosechas reales publicadas por los agricultores en la sesión
+        cosechas_disponibles = comun_listar_cosechas(solo_disponibles=True)
+
+        if not cosechas_disponibles:
+            st.info("⚠️ Aún no hay cosechas publicadas en la plataforma. ¡Pídele a Jonathan que registre una cosecha en su vista de Agricultor para verla aquí en tiempo real!")
+        else:
+            # Barra de búsqueda superior inspirada en tu diseño visual
+            busqueda = st.text_input("🔍 Buscar producto, finca o variedad...", placeholder="Ej. Café, Finca El Mirador, Caturra...")
+            
+            if busqueda:
+                cosechas_disponibles = [
+                    c for c in cosechas_disponibles 
+                    if busqueda.lower() in c['producto'].lower() or busqueda.lower() in c['finca'].lower()
+                ]
+
+            if not cosechas_disponibles:
+                st.warning("No se encontraron productos que coincidan con tu búsqueda.")
+            else:
+                # Mostrar en tarjetas organizadas en filas de 3 columnas (Grid visual)
+                cols = st.columns(3)
+                for idx, cosecha in enumerate(cosechas_disponibles):
+                    col_actual = cols[idx % 3]
+                    with col_actual:
+                        with st.container(border=True):
+                            st.markdown(f"#### 📦 {cosecha['producto']}")
+                            st.caption(f"🏡 **{cosecha['finca']}**")
+                            
+                            # Mostrar imagen de la cosecha si fue cargada
+                            if cosecha.get("foto"):
+                                st.image(cosecha["foto"], use_container_width=True)
+                            else:
+                                st.markdown("""
+                                    <div style="background:#EAF3E8; border-radius:8px; height:120px; display:flex; align-items:center; justify-content:center; color:#24543B;">
+                                        <b>🌱 Cosecha Local</b>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                                
+                            st.write(f"**Precio:** {cop(cosecha['precio'])} por {cosecha['unidad']}")
+                            st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
+                            st.markdown(f"**Calidad:** {cosecha['calidad']}")
+                            
+                            if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
+                                st.success(f"¡Compra simulada con éxito! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+
+        st.markdown("---")
         if st.button("📦 Ver mis pedidos en tránsito"):
             st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
 
