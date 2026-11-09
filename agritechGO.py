@@ -790,20 +790,63 @@ elif st.session_state.pantalla == "dashboard":
                     "Ingresa a Registrar cosecha para comenzar."
                 )
             else:
+                agri_busqueda = st.text_input(
+                    "Buscar por producto o finca",
+                    placeholder="Ejemplo: café o La Esperanza",
+                    key=f"agri_busqueda_{agri_usuario}"
+                )
+
                 agri_filtro = st.selectbox(
                     "Filtrar cosechas",
                     ["Todas", "Disponible", "Pausada", "Agotada"],
                     key=f"agri_filtro_{agri_usuario}"
                 )
 
+                # Normaliza el texto para buscar sin distinguir
+                # mayúsculas ni tildes.
+                import unicodedata
+
+                def agri_normalizar_busqueda(texto):
+                    texto = unicodedata.normalize(
+                        "NFD", str(texto).strip().casefold()
+                    )
+                    return "".join(
+                        caracter
+                        for caracter in texto
+                        if unicodedata.category(caracter) != "Mn"
+                    )
+
+                agri_texto = agri_normalizar_busqueda(
+                    agri_busqueda
+                )
+
                 agri_visibles = [
-                    c for c in agri_cosechas
-                    if agri_filtro == "Todas"
-                    or agri_estado(c) == agri_filtro
+                    cosecha
+                    for cosecha in agri_cosechas
+                    if (
+                        agri_filtro == "Todas"
+                        or agri_estado(cosecha) == agri_filtro
+                    )
+                    and (
+                        not agri_texto
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["producto"]
+                        )
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["finca"]
+                        )
+                    )
                 ]
 
+                st.caption(
+                    f"Mostrando {len(agri_visibles)} "
+                    f"de {len(agri_cosechas)} cosechas"
+                )
                 if not agri_visibles:
-                    st.info("No hay cosechas con ese estado.")
+                    st.info(
+                        "No encontramos cosechas con esa búsqueda "
+                        "y ese estado. Cambia el texto o selecciona Todas."
+                    )
 
                 for agri_c in agri_visibles:
                     agri_id = agri_c["id"]
