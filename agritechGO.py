@@ -907,6 +907,22 @@ elif st.session_state.pantalla == "dashboard":
         st.title("📈 Panel de Inversión Agrícola - agriTechGO")
         st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
         
+        if "inv_perfil" not in st.session_state:
+            inv_init_estado(st.session_state.get("usuario", "Usuario_Demo"))
+
+        tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
+            ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
+        )
+        with tab_perfil:
+            inv_tab_perfil()
+        with tab_fincas:
+            inv_tab_fincas()
+        with tab_inv:
+            inv_tab_inversiones()
+        with tab_wallet:
+            inv_tab_wallet()
+        # -------------------------------------
+
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
         col1.metric("Proyectos Financiados", "2 Activos")
@@ -919,7 +935,6 @@ elif st.session_state.pantalla == "dashboard":
         st.warning("⚡ **Proyecto Destacado:** Infraestructura de secado solar - Vereda Las Margaritas (Meta: $5,000,000 COP - 75% Recaudado)")
         if st.button("💰 Invertir en este Proyecto"):
             st.success("¡Gracias por impulsar el campo! Transacción simulada con éxito.")
-
             
 
 
@@ -953,18 +968,6 @@ elif st.session_state.pantalla == "dashboard":
                 st.success("Caché limpiada correctamente.")
             if st.button("📥 Exportar Reporte General (CSV)"):
                 st.success("Reporte generado con éxito.")
-
-    tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
-                ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
-            )
-    with tab_perfil:
-                inv_tab_perfil()
-    with tab_fincas:
-                inv_tab_fincas()
-    with tab_inv:
-                inv_tab_inversiones()
-    with tab_wallet:
-                inv_tab_wallet()              
 
     st.markdown("---")
     if st.button("⬅ Cerrar sesión y volver al Inicio"):
