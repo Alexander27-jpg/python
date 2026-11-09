@@ -773,11 +773,12 @@ elif st.session_state.pantalla == "dashboard":
 
         st.markdown("---")
 
-        agri_tab1, agri_tab2, agri_tab3, agri_tab4 = st.tabs([
+        agri_tab1, agri_tab2, agri_tab3, agri_tab4, agri_tab5 = st.tabs([
             "🌿 Mis cosechas",
             "➕ Registrar cosecha",
             "📦 Pedidos",
-            "💰 Pagos"
+            "💰 Pagos",
+            "👤 Mi perfil"
         ])
 
         # SECCIÓN 1: TARJETAS MIXTAS DE COSECHAS
@@ -1074,6 +1075,181 @@ elif st.session_state.pantalla == "dashboard":
                 "Aquí podrás consultar los valores pendientes "
                 "y recibidos cuando se integre esta función."
             )
+
+        # SECCIÓN 5: PERFIL DEL PRODUCTOR
+        with agri_tab5:
+            st.subheader("👤 Mi perfil de productor")
+            st.write(
+                "Cuéntanos quién eres y dónde está tu finca."
+            )
+
+            # Crea el perfil solo si todavía no existe.
+            # No modifica las cosechas guardadas.
+            if "perfil" not in agri_datos:
+                agri_datos["perfil"] = {
+                    "nombre": "",
+                    "telefono": "",
+                    "municipio": "",
+                    "vereda": "",
+                    "finca_principal": "",
+                    "descripcion": ""
+                }
+
+            agri_perfil = agri_datos["perfil"]
+
+            st.caption(
+                "Usuario de acceso: " + agri_usuario
+            )
+
+            with st.form(f"agri_form_perfil_{agri_usuario}"):
+                agri_nombre_perfil = st.text_input(
+                    "Nombre del productor *",
+                    value=agri_perfil["nombre"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Jonathan Pérez"
+                )
+
+                agri_telefono_perfil = st.text_input(
+                    "Celular de contacto",
+                    value=agri_perfil["telefono"],
+                    max_chars=25,
+                    placeholder="Ejemplo: 3001234567"
+                )
+
+                agri_municipio_perfil = st.text_input(
+                    "Municipio *",
+                    value=agri_perfil["municipio"],
+                    max_chars=80,
+                    placeholder="Ejemplo: Cúcuta"
+                )
+
+                agri_vereda_perfil = st.text_input(
+                    "Vereda o sector",
+                    value=agri_perfil["vereda"],
+                    max_chars=100,
+                    placeholder="Escribe la ubicación de tu finca"
+                )
+
+                agri_finca_perfil = st.text_input(
+                    "Nombre de la finca principal *",
+                    value=agri_perfil["finca_principal"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Finca La Esperanza"
+                )
+
+                agri_descripcion_perfil = st.text_area(
+                    "Acerca de tu actividad agrícola",
+                    value=agri_perfil["descripcion"],
+                    max_chars=600,
+                    height=120,
+                    placeholder=(
+                        "¿Qué cultivas? ¿Qué te gustaría que "
+                        "conocieran sobre tu trabajo?"
+                    )
+                )
+
+                st.caption(
+                    "* Campos obligatorios. Los datos permanecen "
+                    "en esta sesión y todavía no se publican "
+                    "en otros perfiles."
+                )
+
+                agri_guardar_perfil = st.form_submit_button(
+                    "Guardar mi perfil",
+                    use_container_width=True
+                )
+
+            if agri_guardar_perfil:
+                agri_errores_perfil = []
+
+                if not agri_nombre_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre del productor."
+                    )
+
+                if not agri_municipio_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el municipio."
+                    )
+
+                if not agri_finca_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre de la finca principal."
+                    )
+
+                # El teléfono es opcional.
+                # Se permiten espacios, +, guiones y paréntesis.
+                agri_telefono_limpio = agri_telefono_perfil.strip()
+
+                if agri_telefono_limpio:
+                    agri_caracteres_validos = all(
+                        caracter in "0123456789 +()-"
+                        for caracter in agri_telefono_limpio
+                    )
+
+                    agri_digitos = "".join(
+                        caracter
+                        for caracter in agri_telefono_limpio
+                        if caracter in "0123456789"
+                    )
+
+                    if (
+                        not agri_caracteres_validos
+                        or not 7 <= len(agri_digitos) <= 15
+                    ):
+                        agri_errores_perfil.append(
+                            "Revisa el celular: usa entre 7 y 15 "
+                            "dígitos, sin letras."
+                        )
+
+                if agri_errores_perfil:
+                    for agri_error_perfil in agri_errores_perfil:
+                        st.error(agri_error_perfil)
+                else:
+                    agri_perfil.update({
+                        "nombre": agri_nombre_perfil.strip(),
+                        "telefono": agri_telefono_limpio,
+                        "municipio": agri_municipio_perfil.strip(),
+                        "vereda": agri_vereda_perfil.strip(),
+                        "finca_principal": agri_finca_perfil.strip(),
+                        "descripcion": agri_descripcion_perfil.strip()
+                    })
+
+                    st.success(
+                        "Perfil guardado en esta sesión."
+                    )
+
+            # Resumen de los datos guardados.
+            if agri_perfil["nombre"]:
+                st.markdown("---")
+                st.subheader("Así queda tu información")
+
+                with st.container(border=True):
+                    st.write("**Productor:**", agri_perfil["nombre"])
+                    st.write(
+                        "**Finca principal:**",
+                        agri_perfil["finca_principal"]
+                    )
+                    st.write(
+                        "**Municipio:**",
+                        agri_perfil["municipio"]
+                    )
+
+                    if agri_perfil["vereda"]:
+                        st.write(
+                            "**Vereda o sector:**",
+                            agri_perfil["vereda"]
+                        )
+
+                    if agri_perfil["telefono"]:
+                        st.write(
+                            "**Contacto:**",
+                            agri_perfil["telefono"]
+                        )
+
+                    if agri_perfil["descripcion"]:
+                        st.write("**Acerca del productor:**")
+                        st.write(agri_perfil["descripcion"])
 
    # --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
