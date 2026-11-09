@@ -13,6 +13,7 @@ RUTA_LOGO = "logo.png"
 if "pantalla" not in st.session_state:
     st.session_state.pantalla = "splash"
 
+
 def cop(valor):
     """Formatea un número como pesos colombianos: $1.500.000 COP"""
     return f"${valor:,.0f} COP".replace(",", ".")
@@ -251,6 +252,7 @@ def inv_tab_wallet():
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.caption("Sin movimientos todavía.")    
+
 
 # -------------------------------------------------------------------------
 # PANTALLA DE CARGA (SPLASH SCREEN) CON PLANTA VECTORIAL ANIMADA
@@ -799,11 +801,11 @@ elif st.session_state.pantalla == "dashboard":
                 agri_fecha = st.date_input(
                  "Fecha de cosecha",
                  value=date.today()
-                 
+
                 )
 
                 agri_foto = st.file_uploader(
-                    "📸 Fotografía del producto",
+                    "Fotografía del producto",
                     type=["png", "jpg", "jpeg", "webp"],
                     help="Sube una fotografía de tu cosecha."
                 )
@@ -976,3 +978,12 @@ elif st.session_state.pantalla == "dashboard":
         st.rerun()
 
 
+
+
+
+
+
+
+
+
+print(".")
