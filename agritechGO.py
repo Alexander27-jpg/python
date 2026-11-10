@@ -1526,7 +1526,7 @@ elif st.session_state.pantalla == "dashboard":
         if st.button("📦 Ver mis pedidos en tránsito"):
             st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
 
-    # --- 3. VISTA DE INVERSIONISTA AGRO ---
+    # --- 3. VISTA DE INVERSIONISTA AGRO -
     elif "Inversionista" in rol_actual:
         st.title("📈 Panel de Inversión Agrícola - agriTechGO")
         st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
