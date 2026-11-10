@@ -1369,7 +1369,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_tab_inversiones()
         with tab_wallet:
             inv_tab_wallet()
-        # -------------------------------------
+        
 
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
