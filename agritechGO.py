@@ -389,6 +389,48 @@ def inv_tab_wallet():
     else:
         st.caption("Sin movimientos todavía.")    
 
+# ---------------------------------------------------------------
+# CONSULTAS COMPARTIDAS DE COSECHAS — PROTOTIPO EN UNA SESIÓN
+# ---------------------------------------------------------------
+def comun_estado_cosecha(cosecha):
+    """Calcula el estado usando cantidad y disponibilidad."""
+    if cosecha["cantidad"] <= 0:
+        return "Agotada"
+
+    return "Disponible" if cosecha["activa"] else "Pausada"
+
+
+def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
+    """
+    Consulta las cosechas registradas en esta sesión.
+
+    agricultor_id:
+        None = todos los agricultores de la sesión.
+        Un usuario = únicamente sus cosechas.
+
+    Devuelve copias para evitar modificaciones accidentales
+    desde las pantallas que solo consultan.
+    """
+    resultados = []
+    datos_agricultores = st.session_state.get("agri_datos", {})
+
+    for propietario, datos in datos_agricultores.items():
+        if agricultor_id is not None and propietario != agricultor_id:
+            continue
+
+        for cosecha in datos.get("cosechas", []):
+            registro = dict(cosecha)
+
+            # Identificador provisional: usuario del login actual.
+            registro["agricultor_id"] = propietario
+            registro["estado"] = comun_estado_cosecha(registro)
+
+            if solo_disponibles and registro["estado"] != "Disponible":
+                continue
+
+            resultados.append(registro)
+
+    return resultados
 
 # -------------------------------------------------------------------------
 # PANTALLA DE CARGA (SPLASH SCREEN) CON PLANTA VECTORIAL ANIMADA
@@ -522,16 +564,6 @@ elif st.session_state.pantalla == "login":
                 border-top: 1px solid rgba(255,255,255,0.2);
                 padding-top: 10px;
             }
-
-            div[data-testid="column"]:nth-of-type(2) {
-                background: rgba(13, 27, 20, 0.9);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                padding: 2.5rem;
-                border-radius: 22px;
-                box-shadow: 0px 20px 40px rgba(0, 0, 0, 0.8);
-                border: 2px solid rgba(82, 183, 136, 0.4);
-            }
             
             h2, h3, p, label, .stMarkdown {
                 color: #ffffff !important;
@@ -541,8 +573,9 @@ elif st.session_state.pantalla == "login":
                 color: #a3cef1 !important;
             }
 
+            /* Botón principal estilizado y brillante */
             div.stButton > button:first-child {
-                background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 50%, #52b788 100%);
+                background: linear-gradient(135deg, #2d6a4f 0%, #40916c 50%, #52b788 100%);
                 color: white;
                 border-radius: 12px;
                 height: 52px;
@@ -553,7 +586,7 @@ elif st.session_state.pantalla == "login":
                 transition: 0.3s;
             }
             div.stButton > button:first-child:hover {
-                background: linear-gradient(135deg, #2d6a4f 0%, #52b788 100%);
+                background: linear-gradient(135deg, #40916c 0%, #52b788 100%);
                 box-shadow: 0px 0px 30px rgba(82, 183, 136, 0.9);
                 transform: scale(1.02);
             }
@@ -563,39 +596,46 @@ elif st.session_state.pantalla == "login":
     col_izq, col_der = st.columns([1, 1], gap="large")
 
     with col_izq:
-        if os.path.exists(RUTA_LOGO):
-            st.markdown("<div style='height: 25px;'></div>", unsafe_allow_html=True)
-            st.image(RUTA_LOGO, width=90)
-        else:
-            st.markdown("## COLOQUEN EL LOGO")
+            if os.path.exists(RUTA_LOGO):
+                # Aquí lo corrí hacia la derecha con un valor positivo (40px). 
+                # Puedes ajustar el "40px" si lo quieres más a la derecha o un poco menos.
+                st.markdown("""
+                    <div style="position: relative; left: 40px; top: 0px;">
+                """, unsafe_allow_html=True)
+                
+                st.image(RUTA_LOGO, width=90)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.markdown("## COLOQUEN EL LOGO")
 
-        st.markdown("""
-            <div class="left-card">
-                <div>
-                    <h1>¡Hola,<br>agriTechGO!👋</h1>
-                    <p style="margin-top: 20px;">
-                        El impulso que el campo necesita, directo del cultivo a la mesa. 
-                        Conectando a nuestros agricultores de café directamente con el mercado, 
-                        eliminando intermediarios y generando comercio justo.
-                    </p>
+            st.markdown("""
+                <div class="left-card">
+                    <div>
+                        <h1>¡Bienvenido a<br>agriTechGO! </h1>
+                        <p style="margin-top: 20px;">
+                            El impulso que el campo necesita, directo del cultivo a la mesa. 
+                            Conectando a nuestros agricultores de café directamente con el mercado, 
+                            eliminando intermediarios y generando comercio justo.
+                        </p>
+                    </div>
+                    <div class="left-footer">
+                        © 2026 agriTechGO. 
+                        <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan. 
+                    </div>
                 </div>
-                <div class="left-footer">
-                    © 2026 agriTechGO. 
-                    <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan.
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
 
     with col_der:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("## **agriTechGO**", unsafe_allow_html=True)
-        st.markdown("### **¡Bienvenido de nuevo!**")
-        st.info("💡 **Credenciales de prueba para la presentación:**\n* **Usuario:** `demo@agritech.com` | **Clave:** `1234`")
+        st.markdown("### **Inicia sesión para continuar**")
         
+       
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_moderno", clear_on_submit=False):
-            email = st.text_input("Correo o Usuario", placeholder="demo@agritech.com")
+            email = st.text_input("Correo o Usuario", placeholder="correo@gmail.com")
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             
             rol = st.selectbox(
@@ -612,8 +652,8 @@ elif st.session_state.pantalla == "login":
             submit = st.form_submit_button("Iniciar Sesión Ahora", use_container_width=True)
 
         if submit:
-            # Validación rápida de prueba
-            if email.strip() != "" and password == "1234":
+
+            if email.strip()== "alexander" and password == "1234":
                 st.session_state.pantalla = "dashboard"
                 st.session_state.usuario = email
                 st.session_state.rol = rol
@@ -623,9 +663,167 @@ elif st.session_state.pantalla == "login":
             else:
                 st.error("Contraseña incorrecta (Usa: `1234`).")
 
-        st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Olvidaste tu contraseña? <b>Haz clic aquí</b></p>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Botón para cambiar a la pantalla de registro
+        if st.button("¿No tienes cuenta? Regístrate aquí", use_container_width=True):
+            st.session_state.pantalla = "registro"
+            st.rerun()
 
 # -------------------------------------------------------------------------
+# PANTALLA DE REGISTRO
+# -------------------------------------------------------------------------
+elif st.session_state.pantalla == "registro":
+    
+    st.markdown("""
+        <style>
+            @keyframes neonPulse {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            @keyframes borderGlow {
+                0% { border-color: rgba(82, 183, 136, 0.3); box-shadow: 0 0 15px rgba(82, 183, 136, 0.2); }
+                50% { border-color: rgba(82, 183, 136, 0.8); box-shadow: 0 0 35px rgba(82, 183, 136, 0.6); }
+                100% { border-color: rgba(82, 183, 136, 0.3); box-shadow: 0 0 15px rgba(82, 183, 136, 0.2); }
+            }
+
+            .stApp {
+                background: linear-gradient(-45deg, #022b12, #081c15, #1b4332, #2d6a4f, #0b0f0d);
+                background-size: 500% 500%;
+                animation: neonPulse 8s ease infinite;
+                color: #ffffff;
+            }
+            
+            .left-card {
+                background: rgba(11, 31, 21, 0.85);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                padding: 3rem 2rem;
+                border-radius: 22px;
+                color: white;
+                animation: borderGlow 4s infinite;
+                border: 2px solid rgba(82, 183, 136, 0.5);
+            }
+            .left-card h1 {
+                font-size: 2.6rem;
+                font-weight: 900;
+                color: #ffffff !important;
+                text-shadow: 0 0 15px rgba(82, 183, 136, 0.6);
+            }
+            .left-card p {
+                font-size: 1.05rem;
+                color: #e2fceb;
+                line-height: 1.6;
+            }
+            .left-footer {
+                font-size: 0.8rem;
+                color: #b7e4c7;
+                margin-top: 25px;
+                border-top: 1px solid rgba(255,255,255,0.2);
+                padding-top: 10px;
+            }
+            
+            h2, h3, p, label, .stMarkdown {
+                color: #ffffff !important;
+                font-weight: 500;
+            }
+            .stCaption {
+                color: #a3cef1 !important;
+            }
+
+            /* Botón principal estilizado y brillante */
+            div.stButton > button:first-child {
+                background: linear-gradient(135deg, #2d6a4f 0%, #40916c 50%, #52b788 100%);
+                color: white;
+                border-radius: 12px;
+                height: 52px;
+                font-weight: bold;
+                font-size: 1.1rem;
+                border: 1px solid #74c69d;
+                box-shadow: 0px 0px 20px rgba(82, 183, 136, 0.6);
+                transition: 0.3s;
+            }
+            div.stButton > button:first-child:hover {
+                background: linear-gradient(135deg, #40916c 0%, #52b788 100%);
+                box-shadow: 0px 0px 30px rgba(82, 183, 136, 0.9);
+                transform: scale(1.02);
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    col_izq, col_der = st.columns([1, 1], gap="large")
+
+    with col_izq:
+        if os.path.exists(RUTA_LOGO):
+            st.markdown("""
+                <div style="position: relative; left: 40px; top: 0px;">
+            """, unsafe_allow_html=True)
+            st.image(RUTA_LOGO, width=90)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("## COLOQUEN EL LOGO")
+
+        st.markdown("""
+            <div class="left-card">
+                <div>
+                    <h1>Únete a<br>agriTechGO! 🚀</h1>
+                    <p style="margin-top: 20px;">
+                        Crea tu cuenta hoy mismo y forma parte de la revolución digital del campo. 
+                        Conéctate con compradores y productores de café sin intermediarios.
+                    </p>
+                </div>
+                <div class="left-footer">
+                    © 2026 agriTechGO. 
+                    <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan. 
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_der:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("## **agriTechGO**", unsafe_allow_html=True)
+        st.markdown("### **Crea una nueva cuenta**")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        with st.form("form_registro_moderno", clear_on_submit=False):
+            nombre_reg = st.text_input("Nombre completo", placeholder="Tu nombre y apellido")
+            email_reg = st.text_input("Correo electrónico", placeholder="tucorreo@ejemplo.com")
+            password_reg = st.text_input("Contraseña", type="password", placeholder="••••••••")
+            confirm_reg = st.text_input("Confirmar contraseña", type="password", placeholder="••••••••")
+            
+            rol_reg = st.selectbox(
+                "Selecciona tu perfil principal:",
+                [
+                    " Agricultor / Caficultor", 
+                    " Comprador Directo", 
+                    " Inversionista Agro"
+                ]
+            )
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit_reg = st.form_submit_button("Registrarse Ahora", use_container_width=True)
+
+        if submit_reg:
+            if not nombre_reg.strip() or not email_reg.strip() or not password_reg:
+                st.error("Por favor completa todos los campos obligatorios.")
+            elif password_reg != confirm_reg:
+                st.error("Las contraseñas no coinciden.")
+            else:
+                st.success("¡Cuenta creada con éxito! Ahora puedes iniciar sesión.")
+                st.session_state.pantalla = "login"
+                st.rerun()
+
+        # Botón o enlace para regresar al login si ya tiene cuenta
+        col_volver1, col_volver2 = st.columns([2, 1])
+        with col_volver1:
+            st.markdown("<p style='color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Ya tienes una cuenta?</p>", unsafe_allow_html=True)
+        with col_volver2:
+            if st.button("Ir al Login"):
+                st.session_state.pantalla = "login"
+                st.rerun()
 # PANTALLA 2: DASHBOARDS SEGÚN EL ROL SELECCIONADO
 # -------------------------------------------------------------------------
 elif st.session_state.pantalla == "dashboard":
@@ -731,11 +929,12 @@ elif st.session_state.pantalla == "dashboard":
 
         st.markdown("---")
 
-        agri_tab1, agri_tab2, agri_tab3, agri_tab4 = st.tabs([
+        agri_tab1, agri_tab2, agri_tab3, agri_tab4, agri_tab5 = st.tabs([
             "🌿 Mis cosechas",
             "➕ Registrar cosecha",
             "📦 Pedidos",
-            "💰 Pagos"
+            "💰 Pagos",
+            "👤 Mi perfil"
         ])
 
         # SECCIÓN 1: TARJETAS MIXTAS DE COSECHAS
@@ -752,20 +951,63 @@ elif st.session_state.pantalla == "dashboard":
                     "Ingresa a Registrar cosecha para comenzar."
                 )
             else:
+                agri_busqueda = st.text_input(
+                    "Buscar por producto o finca",
+                    placeholder="Ejemplo: café o La Esperanza",
+                    key=f"agri_busqueda_{agri_usuario}"
+                )
+
                 agri_filtro = st.selectbox(
                     "Filtrar cosechas",
                     ["Todas", "Disponible", "Pausada", "Agotada"],
                     key=f"agri_filtro_{agri_usuario}"
                 )
 
+                # Normaliza el texto para buscar sin distinguir
+                # mayúsculas ni tildes.
+                import unicodedata
+
+                def agri_normalizar_busqueda(texto):
+                    texto = unicodedata.normalize(
+                        "NFD", str(texto).strip().casefold()
+                    )
+                    return "".join(
+                        caracter
+                        for caracter in texto
+                        if unicodedata.category(caracter) != "Mn"
+                    )
+
+                agri_texto = agri_normalizar_busqueda(
+                    agri_busqueda
+                )
+
                 agri_visibles = [
-                    c for c in agri_cosechas
-                    if agri_filtro == "Todas"
-                    or agri_estado(c) == agri_filtro
+                    cosecha
+                    for cosecha in agri_cosechas
+                    if (
+                        agri_filtro == "Todas"
+                        or agri_estado(cosecha) == agri_filtro
+                    )
+                    and (
+                        not agri_texto
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["producto"]
+                        )
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["finca"]
+                        )
+                    )
                 ]
 
+                st.caption(
+                    f"Mostrando {len(agri_visibles)} "
+                    f"de {len(agri_cosechas)} cosechas"
+                )
                 if not agri_visibles:
-                    st.info("No hay cosechas con ese estado.")
+                    st.info(
+                        "No encontramos cosechas con esa búsqueda "
+                        "y ese estado. Cambia el texto o selecciona Todas."
+                    )
 
                 for agri_c in agri_visibles:
                     agri_id = agri_c["id"]
@@ -997,6 +1239,24 @@ elif st.session_state.pantalla == "dashboard":
                     )
                     st.rerun()
 
+
+
+
+
+
+            resultados = comun_listar_cosechas(
+                agricultor_id=agri_usuario,
+                solo_disponibles=True
+            )
+            st.write("Cosechas disponibles encontradas:", len(resultados))
+
+            for cosecha in resultados:
+                st.write(
+                    f"{cosecha['producto']} | "
+                    f"{cosecha['cantidad']:g} {cosecha['unidad']} | "
+                    f"{cosecha['estado']}"
+                )
+
         # SECCIÓN 3: PEDIDOS PENDIENTES DE INTEGRACIÓN
         with agri_tab3:
             st.subheader("Mis pedidos")
@@ -1015,7 +1275,181 @@ elif st.session_state.pantalla == "dashboard":
                 "y recibidos cuando se integre esta función."
             )
 
-   # --- 2. VISTA DE COMPRADOR DIRECTO ---
+        # SECCIÓN 5: PERFIL DEL PRODUCTOR
+        with agri_tab5:
+            st.subheader("👤 Mi perfil de productor")
+            st.write(
+                "Cuéntanos quién eres y dónde está tu finca."
+            )
+
+            # Crea el perfil solo si todavía no existe.
+            # No modifica las cosechas guardadas.
+            if "perfil" not in agri_datos:
+                agri_datos["perfil"] = {
+                    "nombre": "",
+                    "telefono": "",
+                    "municipio": "",
+                    "vereda": "",
+                    "finca_principal": "",
+                    "descripcion": ""
+                }
+
+            agri_perfil = agri_datos["perfil"]
+
+            st.caption(
+                "Usuario de acceso: " + agri_usuario
+            )
+
+            with st.form(f"agri_form_perfil_{agri_usuario}"):
+                agri_nombre_perfil = st.text_input(
+                    "Nombre del productor *",
+                    value=agri_perfil["nombre"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Jonathan Pérez"
+                )
+
+                agri_telefono_perfil = st.text_input(
+                    "Celular de contacto",
+                    value=agri_perfil["telefono"],
+                    max_chars=25,
+                    placeholder="Ejemplo: 3001234567"
+                )
+
+                agri_municipio_perfil = st.text_input(
+                    "Municipio *",
+                    value=agri_perfil["municipio"],
+                    max_chars=80,
+                    placeholder="Ejemplo: Cúcuta"
+                )
+
+                agri_vereda_perfil = st.text_input(
+                    "Vereda o sector",
+                    value=agri_perfil["vereda"],
+                    max_chars=100,
+                    placeholder="Escribe la ubicación de tu finca"
+                )
+
+                agri_finca_perfil = st.text_input(
+                    "Nombre de la finca principal *",
+                    value=agri_perfil["finca_principal"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Finca La Esperanza"
+                )
+
+                agri_descripcion_perfil = st.text_area(
+                    "Acerca de tu actividad agrícola",
+                    value=agri_perfil["descripcion"],
+                    max_chars=600,
+                    height=120,
+                    placeholder=(
+                        "¿Qué cultivas? ¿Qué te gustaría que "
+                        "conocieran sobre tu trabajo?"
+                    )
+                )
+
+                st.caption(
+                    "* Campos obligatorios. Los datos permanecen "
+                    "en esta sesión y todavía no se publican "
+                    "en otros perfiles."
+                )
+
+                agri_guardar_perfil = st.form_submit_button(
+                    "Guardar mi perfil",
+                    use_container_width=True
+                )
+
+            if agri_guardar_perfil:
+                agri_errores_perfil = []
+
+                if not agri_nombre_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre del productor."
+                    )
+
+                if not agri_municipio_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el municipio."
+                    )
+
+                if not agri_finca_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre de la finca principal."
+                    )
+
+                # Se permiten espacios, +, guiones y paréntesis.
+                agri_telefono_limpio = agri_telefono_perfil.strip()
+
+                if agri_telefono_limpio:
+                    agri_caracteres_validos = all(
+                        caracter in "0123456789 +()-"
+                        for caracter in agri_telefono_limpio
+                    )
+
+                    agri_digitos = "".join(
+                        caracter
+                        for caracter in agri_telefono_limpio
+                        if caracter in "0123456789"
+                    )
+
+                    if (
+                        not agri_caracteres_validos
+                        or not 7 <= len(agri_digitos) <= 15
+                    ):
+                        agri_errores_perfil.append(
+                            "Revisa el celular: usa entre 7 y 15 "
+                            "dígitos, sin letras."
+                        )
+
+                if agri_errores_perfil:
+                    for agri_error_perfil in agri_errores_perfil:
+                        st.error(agri_error_perfil)
+                else:
+                    agri_perfil.update({
+                        "nombre": agri_nombre_perfil.strip(),
+                        "telefono": agri_telefono_limpio,
+                        "municipio": agri_municipio_perfil.strip(),
+                        "vereda": agri_vereda_perfil.strip(),
+                        "finca_principal": agri_finca_perfil.strip(),
+                        "descripcion": agri_descripcion_perfil.strip()
+                    })
+
+                    st.success(
+                        "Perfil guardado en esta sesión."
+                    )
+
+            # Resumen de los datos guardados.
+            if agri_perfil["nombre"]:
+                st.markdown("---")
+                st.subheader("Así queda tu información")
+
+                with st.container(border=True):
+                    st.write("**Productor:**", agri_perfil["nombre"])
+                    st.write(
+                        "**Finca principal:**",
+                        agri_perfil["finca_principal"]
+                    )
+                    st.write(
+                        "**Municipio:**",
+                        agri_perfil["municipio"]
+                    )
+
+                    if agri_perfil["vereda"]:
+                        st.write(
+                            "**Vereda o sector:**",
+                            agri_perfil["vereda"]
+                        )
+
+                    if agri_perfil["telefono"]:
+                        st.write(
+                            "**Contacto:**",
+                            agri_perfil["telefono"]
+                        )
+
+                    if agri_perfil["descripcion"]:
+                        st.write("**Acerca del productor:**")
+                        st.write(agri_perfil["descripcion"])
+
+# --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
         st.title("🛒 Mercado de Café y Productos - agriTechGO")
         st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
@@ -1069,14 +1503,30 @@ elif st.session_state.pantalla == "dashboard":
                             st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
                             st.markdown(f"**Calidad:** {cosecha['calidad']}")
                             
+                            # Botón de compra interactivo con descuento de inventario
                             if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
-                                st.success(f"¡Compra simulada con éxito! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                propietario_id = cosecha['agricultor_id']
+                                cosechas_originales = st.session_state["agri_datos"][propietario_id]["cosechas"]
+                                
+                                compra_realizada = False
+                                for orig in cosechas_originales:
+                                    if orig['id'] == cosecha['id']:
+                                        if orig['cantidad'] > 0:
+                                            orig['cantidad'] -= 1
+                                            compra_realizada = True
+                                        break
+                                        
+                                if compra_realizada:
+                                    st.success(f"¡Compra exitosa! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                    st.rerun()
+                                else:
+                                    st.error("Lo sentimos, este lote ya se encuentra agotado.")
 
         st.markdown("---")
         if st.button("📦 Ver mis pedidos en tránsito"):
             st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
 
-    # --- 3. VISTA DE INVERSIONISTA AGRO ---
+    # --- 3. VISTA DE INVERSIONISTA AGRO -
     elif "Inversionista" in rol_actual:
         st.title("📈 Panel de Inversión Agrícola - agriTechGO")
         st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
@@ -1095,7 +1545,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_tab_inversiones()
         with tab_wallet:
             inv_tab_wallet()
-        # -------------------------------------
+        
 
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
@@ -1158,4 +1608,4 @@ elif st.session_state.pantalla == "dashboard":
 
 
 
-print("..")
+print("....")
