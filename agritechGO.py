@@ -635,7 +635,7 @@ elif st.session_state.pantalla == "login":
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_moderno", clear_on_submit=False):
-            email = st.text_input("Correo o Usuario", placeholder="demo@agritech.com")
+            email = st.text_input("Correo o Usuario", placeholder="correo@gmail.com")
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             
             rol = st.selectbox(
@@ -652,7 +652,8 @@ elif st.session_state.pantalla == "login":
             submit = st.form_submit_button("Iniciar Sesión Ahora", use_container_width=True)
 
         if submit:
-            if email.strip() != "" and password == "1234":
+
+            if email.strip()== "alexander" and password == "1234":
                 st.session_state.pantalla = "dashboard"
                 st.session_state.usuario = email
                 st.session_state.rol = rol
@@ -662,7 +663,167 @@ elif st.session_state.pantalla == "login":
             else:
                 st.error("Contraseña incorrecta (Usa: `1234`).")
 
-        st.markdown("<p style='text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Olvidaste tu contraseña? <b>Haz clic aquí</b></p>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Botón para cambiar a la pantalla de registro
+        if st.button("¿No tienes cuenta? Regístrate aquí", use_container_width=True):
+            st.session_state.pantalla = "registro"
+            st.rerun()
+
+# -------------------------------------------------------------------------
+# PANTALLA DE REGISTRO
+# -------------------------------------------------------------------------
+elif st.session_state.pantalla == "registro":
+    
+    st.markdown("""
+        <style>
+            @keyframes neonPulse {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            @keyframes borderGlow {
+                0% { border-color: rgba(82, 183, 136, 0.3); box-shadow: 0 0 15px rgba(82, 183, 136, 0.2); }
+                50% { border-color: rgba(82, 183, 136, 0.8); box-shadow: 0 0 35px rgba(82, 183, 136, 0.6); }
+                100% { border-color: rgba(82, 183, 136, 0.3); box-shadow: 0 0 15px rgba(82, 183, 136, 0.2); }
+            }
+
+            .stApp {
+                background: linear-gradient(-45deg, #022b12, #081c15, #1b4332, #2d6a4f, #0b0f0d);
+                background-size: 500% 500%;
+                animation: neonPulse 8s ease infinite;
+                color: #ffffff;
+            }
+            
+            .left-card {
+                background: rgba(11, 31, 21, 0.85);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                padding: 3rem 2rem;
+                border-radius: 22px;
+                color: white;
+                animation: borderGlow 4s infinite;
+                border: 2px solid rgba(82, 183, 136, 0.5);
+            }
+            .left-card h1 {
+                font-size: 2.6rem;
+                font-weight: 900;
+                color: #ffffff !important;
+                text-shadow: 0 0 15px rgba(82, 183, 136, 0.6);
+            }
+            .left-card p {
+                font-size: 1.05rem;
+                color: #e2fceb;
+                line-height: 1.6;
+            }
+            .left-footer {
+                font-size: 0.8rem;
+                color: #b7e4c7;
+                margin-top: 25px;
+                border-top: 1px solid rgba(255,255,255,0.2);
+                padding-top: 10px;
+            }
+            
+            h2, h3, p, label, .stMarkdown {
+                color: #ffffff !important;
+                font-weight: 500;
+            }
+            .stCaption {
+                color: #a3cef1 !important;
+            }
+
+            /* Botón principal estilizado y brillante */
+            div.stButton > button:first-child {
+                background: linear-gradient(135deg, #2d6a4f 0%, #40916c 50%, #52b788 100%);
+                color: white;
+                border-radius: 12px;
+                height: 52px;
+                font-weight: bold;
+                font-size: 1.1rem;
+                border: 1px solid #74c69d;
+                box-shadow: 0px 0px 20px rgba(82, 183, 136, 0.6);
+                transition: 0.3s;
+            }
+            div.stButton > button:first-child:hover {
+                background: linear-gradient(135deg, #40916c 0%, #52b788 100%);
+                box-shadow: 0px 0px 30px rgba(82, 183, 136, 0.9);
+                transform: scale(1.02);
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    col_izq, col_der = st.columns([1, 1], gap="large")
+
+    with col_izq:
+        if os.path.exists(RUTA_LOGO):
+            st.markdown("""
+                <div style="position: relative; left: 40px; top: 0px;">
+            """, unsafe_allow_html=True)
+            st.image(RUTA_LOGO, width=90)
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("## COLOQUEN EL LOGO")
+
+        st.markdown("""
+            <div class="left-card">
+                <div>
+                    <h1>Únete a<br>agriTechGO! 🚀</h1>
+                    <p style="margin-top: 20px;">
+                        Crea tu cuenta hoy mismo y forma parte de la revolución digital del campo. 
+                        Conéctate con compradores y productores de café sin intermediarios.
+                    </p>
+                </div>
+                <div class="left-footer">
+                    © 2026 agriTechGO. 
+                    <br><b>Créditos:</b> Ing. Alexander, Ing. Kevin, Ing. Luis, Ing. Jonathan. 
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_der:
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("## **agriTechGO**", unsafe_allow_html=True)
+        st.markdown("### **Crea una nueva cuenta**")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        with st.form("form_registro_moderno", clear_on_submit=False):
+            nombre_reg = st.text_input("Nombre completo", placeholder="Tu nombre y apellido")
+            email_reg = st.text_input("Correo electrónico", placeholder="tucorreo@ejemplo.com")
+            password_reg = st.text_input("Contraseña", type="password", placeholder="••••••••")
+            confirm_reg = st.text_input("Confirmar contraseña", type="password", placeholder="••••••••")
+            
+            rol_reg = st.selectbox(
+                "Selecciona tu perfil principal:",
+                [
+                    "👨‍🌾 Agricultor / Caficultor", 
+                    "🛒 Comprador Directo", 
+                    "📈 Inversionista Agro"
+                ]
+            )
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit_reg = st.form_submit_button("Registrarse Ahora", use_container_width=True)
+
+        if submit_reg:
+            if not nombre_reg.strip() or not email_reg.strip() or not password_reg:
+                st.error("Por favor completa todos los campos obligatorios.")
+            elif password_reg != confirm_reg:
+                st.error("Las contraseñas no coinciden.")
+            else:
+                st.success("¡Cuenta creada con éxito! Ahora puedes iniciar sesión.")
+                st.session_state.pantalla = "login"
+                st.rerun()
+
+        # Botón o enlace para regresar al login si ya tiene cuenta
+        col_volver1, col_volver2 = st.columns([2, 1])
+        with col_volver1:
+            st.markdown("<p style='color: #94a3b8; font-size: 0.85rem; margin-top: 15px;'>¿Ya tienes una cuenta?</p>", unsafe_allow_html=True)
+        with col_volver2:
+            if st.button("Ir al Login"):
+                st.session_state.pantalla = "login"
+                st.rerun()
 # PANTALLA 2: DASHBOARDS SEGÚN EL ROL SELECCIONADO
 # -------------------------------------------------------------------------
 elif st.session_state.pantalla == "dashboard":
@@ -1215,7 +1376,6 @@ elif st.session_state.pantalla == "dashboard":
                         "Escribe el nombre de la finca principal."
                     )
 
-                # El teléfono es opcional.
                 # Se permiten espacios, +, guiones y paréntesis.
                 agri_telefono_limpio = agri_telefono_perfil.strip()
 
@@ -1385,7 +1545,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_tab_inversiones()
         with tab_wallet:
             inv_tab_wallet()
-        # -------------------------------------
+        
 
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
