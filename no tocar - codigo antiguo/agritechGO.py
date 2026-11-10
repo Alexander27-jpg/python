@@ -138,7 +138,7 @@ def inv_tab_perfil():
             "Descripción", value=perfil["descripcion"], height=150,
             placeholder="Cuéntales a los agricultores quién eres y por qué te interesa invertir en el campo...",
         )
-        if st.button("💾 Guardar perfil"):
+        if st.button(" Guardar perfil"):
             perfil["nombre"] = nombre.strip() or perfil["nombre"]
             perfil["descripcion"] = descripcion
             st.success("Perfil guardado.")
