@@ -1376,7 +1376,6 @@ elif st.session_state.pantalla == "dashboard":
                         "Escribe el nombre de la finca principal."
                     )
 
-                # El teléfono es opcional.
                 # Se permiten espacios, +, guiones y paréntesis.
                 agri_telefono_limpio = agri_telefono_perfil.strip()
 
@@ -1546,7 +1545,7 @@ elif st.session_state.pantalla == "dashboard":
             inv_tab_inversiones()
         with tab_wallet:
             inv_tab_wallet()
-        # -------------------------------------
+        
 
         st.markdown("---")
         col1, col2, col3 = st.columns(3)
