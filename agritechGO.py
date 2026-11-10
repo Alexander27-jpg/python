@@ -1376,7 +1376,6 @@ elif st.session_state.pantalla == "dashboard":
                         "Escribe el nombre de la finca principal."
                     )
 
-                # El teléfono es opcional.
                 # Se permiten espacios, +, guiones y paréntesis.
                 agri_telefono_limpio = agri_telefono_perfil.strip()
 
