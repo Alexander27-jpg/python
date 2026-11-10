@@ -1289,7 +1289,7 @@ elif st.session_state.pantalla == "dashboard":
                         st.write("**Acerca del productor:**")
                         st.write(agri_perfil["descripcion"])
 
-   # --- 2. VISTA DE COMPRADOR DIRECTO ---
+# --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
         st.title("🛒 Mercado de Café y Productos - agriTechGO")
         st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
@@ -1343,8 +1343,24 @@ elif st.session_state.pantalla == "dashboard":
                             st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
                             st.markdown(f"**Calidad:** {cosecha['calidad']}")
                             
+                            # Botón de compra interactivo con descuento de inventario
                             if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
-                                st.success(f"¡Compra simulada con éxito! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                propietario_id = cosecha['agricultor_id']
+                                cosechas_originales = st.session_state["agri_datos"][propietario_id]["cosechas"]
+                                
+                                compra_realizada = False
+                                for orig in cosechas_originales:
+                                    if orig['id'] == cosecha['id']:
+                                        if orig['cantidad'] > 0:
+                                            orig['cantidad'] -= 1
+                                            compra_realizada = True
+                                        break
+                                        
+                                if compra_realizada:
+                                    st.success(f"¡Compra exitosa! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                    st.rerun()
+                                else:
+                                    st.error("Lo sentimos, este lote ya se encuentra agotado.")
 
         st.markdown("---")
         if st.button("📦 Ver mis pedidos en tránsito"):
