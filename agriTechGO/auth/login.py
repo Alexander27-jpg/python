@@ -2,6 +2,15 @@ import streamlit as st
 import os
 import time
 
+from mysql.connector import Error as MySQLError
+
+from auth.usuarios import (
+    registrar_usuario,
+    autenticar_usuario,
+    ROLES,
+    ETIQUETAS_ROL,
+)
+
 def mostrar_splash():
     """Muestra la pantalla de carga inicial con animación"""
     st.markdown("""
@@ -81,6 +90,10 @@ def mostrar_splash():
 
 def mostrar_login(ruta_logo):
     """Muestra la interfaz de inicio de sesión"""
+    aviso = st.session_state.pop("auth_aviso", None)
+
+    if aviso:
+        st.success(aviso)
     st.markdown("""
         <style>
             @keyframes neonPulse {
@@ -194,7 +207,10 @@ def mostrar_login(ruta_logo):
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_moderno", clear_on_submit=False):
-            email = st.text_input("Correo o Usuario", placeholder="correo@gmail.com")
+            email = st.text_input(
+                "Correo electrónico",
+                placeholder="correo@gmail.com",
+            )
             password = st.text_input("Contraseña", type="password", placeholder="••••••••")
             
             rol = st.selectbox(
@@ -211,21 +227,47 @@ def mostrar_login(ruta_logo):
             submit = st.form_submit_button("Iniciar Sesión Ahora", use_container_width=True)
 
         if submit:
-            if email.strip() == "alexander" and password == "1234":
-                st.session_state.pantalla = "dashboard"
-                st.session_state.usuario = email
-                st.session_state.rol = rol
-                st.rerun()
-            elif email.strip() == "":
-                st.error("Por favor ingresa un correo o usuario.")
+            if not email.strip() or not password:
+                st.error("Escribe tu correo y contraseña.")
+
             else:
-                st.error("Contraseña incorrecta (Usa: `1234`).")
+                try:
+                    usuario = autenticar_usuario(email, password)
+
+                except MySQLError as error:
+                    st.error(f"Error {error.errno}: {error.msg}")
+
+                else:
+                    rol_seleccionado = ROLES.get(rol.strip())
+
+                    if usuario is None:
+                        st.error("Correo o contraseña incorrectos, o cuenta inactiva.")
+
+                    elif usuario["rol"] != rol_seleccionado:
+                        st.error(
+                            "El perfil seleccionado no corresponde "
+                            "al registrado en tu cuenta."
+                        )
+
+                    else:
+                        # Limpia los datos temporales de una sesión anterior.
+                        st.session_state.clear()
+
+                        st.session_state["usuario_id"] = usuario["id"]
+                        st.session_state["usuario"] = usuario["correo"]
+                        st.session_state["nombre"] = usuario["nombre"]
+                        st.session_state["rol_db"] = usuario["rol"]
+
+                        # main.py reconoce estas etiquetas.
+                        st.session_state["rol"] = ETIQUETAS_ROL[usuario["rol"]]
+                        st.session_state["pantalla"] = "dashboard"
+
+                        st.rerun()
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("¿No tienes cuenta? Regístrate aquí", use_container_width=True):
             st.session_state.pantalla = "registro"
             st.rerun()
-
 
 def mostrar_registro(ruta_logo):
     """Muestra la interfaz de registro de usuarios"""
@@ -356,12 +398,34 @@ def mostrar_registro(ruta_logo):
         if submit_reg:
             if not nombre_reg.strip() or not email_reg.strip() or not password_reg:
                 st.error("Por favor completa todos los campos obligatorios.")
+
             elif password_reg != confirm_reg:
                 st.error("Las contraseñas no coinciden.")
+
             else:
-                st.success("¡Cuenta creada con éxito! Ahora puedes iniciar sesión.")
-                st.session_state.pantalla = "login"
-                st.rerun()
+                try:
+                    registrar_usuario(
+                        nombre=nombre_reg,
+                        correo=email_reg,
+                        password=password_reg,
+                        etiqueta_rol=rol_reg,
+                    )
+
+                except ValueError as error:
+                    st.error(str(error))
+
+                except MySQLError as error:
+                 st.error(f"Error {error.errno}: {error.msg}")
+                          
+                    
+
+                else:
+                    st.session_state["auth_aviso"] = (
+                        "Cuenta creada correctamente. "
+                        "Inicia sesión con tu correo y contraseña."
+                    )
+                    st.session_state.pantalla = "login"
+                    st.rerun()
 
         col_volver1, col_volver2 = st.columns([2, 1])
         with col_volver1:
