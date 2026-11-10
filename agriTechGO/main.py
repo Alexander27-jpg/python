@@ -37,14 +37,10 @@ elif st.session_state.pantalla == "registro":
 # 4. PANTALLA DE DASHBOARD (SEGÚN EL ROL SELECCIONADO)
 # -------------------------------------------------------------------------
 elif st.session_state.pantalla == "dashboard":
-    if not st.session_state.get("usuario_id"):
-        st.session_state.pantalla = "login"
-        st.rerun()
     rol_actual = st.session_state.get("rol", "")
     
     # Botón flotante o en barra lateral para cerrar sesión
     if st.sidebar.button("⬅ Cerrar sesión y volver"):
-        st.session_state.clear()
         st.session_state.pantalla = "splash"
         st.rerun()
 
