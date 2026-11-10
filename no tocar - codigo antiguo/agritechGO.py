@@ -138,7 +138,7 @@ def inv_tab_perfil():
             "Descripción", value=perfil["descripcion"], height=150,
             placeholder="Cuéntales a los agricultores quién eres y por qué te interesa invertir en el campo...",
         )
-        if st.button("💾 Guardar perfil"):
+        if st.button(" Guardar perfil"):
             perfil["nombre"] = nombre.strip() or perfil["nombre"]
             perfil["descripcion"] = descripcion
             st.success("Perfil guardado.")
@@ -1526,7 +1526,7 @@ elif st.session_state.pantalla == "dashboard":
         if st.button("📦 Ver mis pedidos en tránsito"):
             st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
 
-    # --- 3. VISTA DE INVERSIONISTA AGRO ---
+    # --- 3. VISTA DE INVERSIONISTA AGRO -
     elif "Inversionista" in rol_actual:
         st.title("📈 Panel de Inversión Agrícola - agriTechGO")
         st.success(f"Perfil Inversionista: **{st.session_state.usuario}**")
