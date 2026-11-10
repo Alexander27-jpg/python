@@ -929,11 +929,12 @@ elif st.session_state.pantalla == "dashboard":
 
         st.markdown("---")
 
-        agri_tab1, agri_tab2, agri_tab3, agri_tab4 = st.tabs([
+        agri_tab1, agri_tab2, agri_tab3, agri_tab4, agri_tab5 = st.tabs([
             "🌿 Mis cosechas",
             "➕ Registrar cosecha",
             "📦 Pedidos",
-            "💰 Pagos"
+            "💰 Pagos",
+            "👤 Mi perfil"
         ])
 
         # SECCIÓN 1: TARJETAS MIXTAS DE COSECHAS
@@ -950,20 +951,63 @@ elif st.session_state.pantalla == "dashboard":
                     "Ingresa a Registrar cosecha para comenzar."
                 )
             else:
+                agri_busqueda = st.text_input(
+                    "Buscar por producto o finca",
+                    placeholder="Ejemplo: café o La Esperanza",
+                    key=f"agri_busqueda_{agri_usuario}"
+                )
+
                 agri_filtro = st.selectbox(
                     "Filtrar cosechas",
                     ["Todas", "Disponible", "Pausada", "Agotada"],
                     key=f"agri_filtro_{agri_usuario}"
                 )
 
+                # Normaliza el texto para buscar sin distinguir
+                # mayúsculas ni tildes.
+                import unicodedata
+
+                def agri_normalizar_busqueda(texto):
+                    texto = unicodedata.normalize(
+                        "NFD", str(texto).strip().casefold()
+                    )
+                    return "".join(
+                        caracter
+                        for caracter in texto
+                        if unicodedata.category(caracter) != "Mn"
+                    )
+
+                agri_texto = agri_normalizar_busqueda(
+                    agri_busqueda
+                )
+
                 agri_visibles = [
-                    c for c in agri_cosechas
-                    if agri_filtro == "Todas"
-                    or agri_estado(c) == agri_filtro
+                    cosecha
+                    for cosecha in agri_cosechas
+                    if (
+                        agri_filtro == "Todas"
+                        or agri_estado(cosecha) == agri_filtro
+                    )
+                    and (
+                        not agri_texto
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["producto"]
+                        )
+                        or agri_texto in agri_normalizar_busqueda(
+                            cosecha["finca"]
+                        )
+                    )
                 ]
 
+                st.caption(
+                    f"Mostrando {len(agri_visibles)} "
+                    f"de {len(agri_cosechas)} cosechas"
+                )
                 if not agri_visibles:
-                    st.info("No hay cosechas con ese estado.")
+                    st.info(
+                        "No encontramos cosechas con esa búsqueda "
+                        "y ese estado. Cambia el texto o selecciona Todas."
+                    )
 
                 for agri_c in agri_visibles:
                     agri_id = agri_c["id"]
@@ -1231,7 +1275,182 @@ elif st.session_state.pantalla == "dashboard":
                 "y recibidos cuando se integre esta función."
             )
 
-   # --- 2. VISTA DE COMPRADOR DIRECTO ---
+        # SECCIÓN 5: PERFIL DEL PRODUCTOR
+        with agri_tab5:
+            st.subheader("👤 Mi perfil de productor")
+            st.write(
+                "Cuéntanos quién eres y dónde está tu finca."
+            )
+
+            # Crea el perfil solo si todavía no existe.
+            # No modifica las cosechas guardadas.
+            if "perfil" not in agri_datos:
+                agri_datos["perfil"] = {
+                    "nombre": "",
+                    "telefono": "",
+                    "municipio": "",
+                    "vereda": "",
+                    "finca_principal": "",
+                    "descripcion": ""
+                }
+
+            agri_perfil = agri_datos["perfil"]
+
+            st.caption(
+                "Usuario de acceso: " + agri_usuario
+            )
+
+            with st.form(f"agri_form_perfil_{agri_usuario}"):
+                agri_nombre_perfil = st.text_input(
+                    "Nombre del productor *",
+                    value=agri_perfil["nombre"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Jonathan Pérez"
+                )
+
+                agri_telefono_perfil = st.text_input(
+                    "Celular de contacto",
+                    value=agri_perfil["telefono"],
+                    max_chars=25,
+                    placeholder="Ejemplo: 3001234567"
+                )
+
+                agri_municipio_perfil = st.text_input(
+                    "Municipio *",
+                    value=agri_perfil["municipio"],
+                    max_chars=80,
+                    placeholder="Ejemplo: Cúcuta"
+                )
+
+                agri_vereda_perfil = st.text_input(
+                    "Vereda o sector",
+                    value=agri_perfil["vereda"],
+                    max_chars=100,
+                    placeholder="Escribe la ubicación de tu finca"
+                )
+
+                agri_finca_perfil = st.text_input(
+                    "Nombre de la finca principal *",
+                    value=agri_perfil["finca_principal"],
+                    max_chars=100,
+                    placeholder="Ejemplo: Finca La Esperanza"
+                )
+
+                agri_descripcion_perfil = st.text_area(
+                    "Acerca de tu actividad agrícola",
+                    value=agri_perfil["descripcion"],
+                    max_chars=600,
+                    height=120,
+                    placeholder=(
+                        "¿Qué cultivas? ¿Qué te gustaría que "
+                        "conocieran sobre tu trabajo?"
+                    )
+                )
+
+                st.caption(
+                    "* Campos obligatorios. Los datos permanecen "
+                    "en esta sesión y todavía no se publican "
+                    "en otros perfiles."
+                )
+
+                agri_guardar_perfil = st.form_submit_button(
+                    "Guardar mi perfil",
+                    use_container_width=True
+                )
+
+            if agri_guardar_perfil:
+                agri_errores_perfil = []
+
+                if not agri_nombre_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre del productor."
+                    )
+
+                if not agri_municipio_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el municipio."
+                    )
+
+                if not agri_finca_perfil.strip():
+                    agri_errores_perfil.append(
+                        "Escribe el nombre de la finca principal."
+                    )
+
+                # El teléfono es opcional.
+                # Se permiten espacios, +, guiones y paréntesis.
+                agri_telefono_limpio = agri_telefono_perfil.strip()
+
+                if agri_telefono_limpio:
+                    agri_caracteres_validos = all(
+                        caracter in "0123456789 +()-"
+                        for caracter in agri_telefono_limpio
+                    )
+
+                    agri_digitos = "".join(
+                        caracter
+                        for caracter in agri_telefono_limpio
+                        if caracter in "0123456789"
+                    )
+
+                    if (
+                        not agri_caracteres_validos
+                        or not 7 <= len(agri_digitos) <= 15
+                    ):
+                        agri_errores_perfil.append(
+                            "Revisa el celular: usa entre 7 y 15 "
+                            "dígitos, sin letras."
+                        )
+
+                if agri_errores_perfil:
+                    for agri_error_perfil in agri_errores_perfil:
+                        st.error(agri_error_perfil)
+                else:
+                    agri_perfil.update({
+                        "nombre": agri_nombre_perfil.strip(),
+                        "telefono": agri_telefono_limpio,
+                        "municipio": agri_municipio_perfil.strip(),
+                        "vereda": agri_vereda_perfil.strip(),
+                        "finca_principal": agri_finca_perfil.strip(),
+                        "descripcion": agri_descripcion_perfil.strip()
+                    })
+
+                    st.success(
+                        "Perfil guardado en esta sesión."
+                    )
+
+            # Resumen de los datos guardados.
+            if agri_perfil["nombre"]:
+                st.markdown("---")
+                st.subheader("Así queda tu información")
+
+                with st.container(border=True):
+                    st.write("**Productor:**", agri_perfil["nombre"])
+                    st.write(
+                        "**Finca principal:**",
+                        agri_perfil["finca_principal"]
+                    )
+                    st.write(
+                        "**Municipio:**",
+                        agri_perfil["municipio"]
+                    )
+
+                    if agri_perfil["vereda"]:
+                        st.write(
+                            "**Vereda o sector:**",
+                            agri_perfil["vereda"]
+                        )
+
+                    if agri_perfil["telefono"]:
+                        st.write(
+                            "**Contacto:**",
+                            agri_perfil["telefono"]
+                        )
+
+                    if agri_perfil["descripcion"]:
+                        st.write("**Acerca del productor:**")
+                        st.write(agri_perfil["descripcion"])
+
+# --- 2. VISTA DE COMPRADOR DIRECTO ---
     elif "Comprador" in rol_actual:
         st.title("🛒 Mercado de Café y Productos - agriTechGO")
         st.success(f"Conectado como Comprador: **{st.session_state.usuario}**")
@@ -1285,8 +1504,24 @@ elif st.session_state.pantalla == "dashboard":
                             st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
                             st.markdown(f"**Calidad:** {cosecha['calidad']}")
                             
+                            # Botón de compra interactivo con descuento de inventario
                             if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
-                                st.success(f"¡Compra simulada con éxito! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                propietario_id = cosecha['agricultor_id']
+                                cosechas_originales = st.session_state["agri_datos"][propietario_id]["cosechas"]
+                                
+                                compra_realizada = False
+                                for orig in cosechas_originales:
+                                    if orig['id'] == cosecha['id']:
+                                        if orig['cantidad'] > 0:
+                                            orig['cantidad'] -= 1
+                                            compra_realizada = True
+                                        break
+                                        
+                                if compra_realizada:
+                                    st.success(f"¡Compra exitosa! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                    st.rerun()
+                                else:
+                                    st.error("Lo sentimos, este lote ya se encuentra agotado.")
 
         st.markdown("---")
         if st.button("📦 Ver mis pedidos en tránsito"):
