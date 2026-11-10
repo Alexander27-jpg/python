@@ -797,9 +797,9 @@ elif st.session_state.pantalla == "registro":
             rol_reg = st.selectbox(
                 "Selecciona tu perfil principal:",
                 [
-                    "👨‍🌾 Agricultor / Caficultor", 
-                    "🛒 Comprador Directo", 
-                    "📈 Inversionista Agro"
+                    " Agricultor / Caficultor", 
+                    " Comprador Directo", 
+                    " Inversionista Agro"
                 ]
             )
             
