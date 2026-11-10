@@ -1,5 +1,0 @@
-para volver un archivo .exe
-
-cd "ruta\de\tu\carpeta"
-
-python -m PyInstaller --onefile tu_archivo.py
