@@ -68,7 +68,7 @@ def ejecutar_modo_agricultor():
     agri_datos = st.session_state["agri_datos"][agri_usuario]
     agri_cosechas = agri_datos["cosechas"]
 
-    # ENCABEZADO
+    # ENCa
     st.markdown(
         f"""
         <div style="
