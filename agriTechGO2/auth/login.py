@@ -371,3 +371,5 @@ def mostrar_registro(ruta_logo):
             if st.button("Ir al Login"):
                 st.session_state.pantalla = "login"
                 st.rerun()
+
+                print("hola")
