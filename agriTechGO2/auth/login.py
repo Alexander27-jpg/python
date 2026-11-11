@@ -317,7 +317,7 @@ def mostrar_registro(ruta_logo):
         st.markdown("""
             <div class="left-card">
                 <div>
-                    <h1>Únete a<br>agriTechGO! 🚀</h1>
+                    <h1>Únete a<br>agriTechGO! </h1>
                     <p style="margin-top: 20px;">
                         Crea tu cuenta hoy mismo y forma parte de la revolución digital del campo. 
                         Conéctate con compradores y productores de café sin intermediarios.
