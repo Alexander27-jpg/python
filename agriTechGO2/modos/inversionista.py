@@ -280,3 +280,6 @@ def ejecutar_modo_inversionista():
         inv_tab_inversiones()
     with tab_wallet:
         inv_tab_wallet()
+
+print("por el emperador")
+
