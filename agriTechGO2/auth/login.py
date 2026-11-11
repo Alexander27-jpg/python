@@ -373,3 +373,18 @@ def mostrar_registro(ruta_logo):
                 st.rerun()
 
                 print("hola")
+
+                # Desde cualquier archivo de tu proyecto (como login.py)
+from conexion import obtener_conexion
+
+def verificar_usuario():
+    db = obtener_conexion()
+    if db:
+        cursor = db.cursor()
+        # Aquí haces tus consultas SQL tranquilamente
+        cursor.execute("SELECT * FROM sys.sys_config;") 
+        resultados = cursor.fetchall()
+        
+        cursor.close()
+        db.close()
+        print("Consulta realizada con éxito")
