@@ -372,4 +372,4 @@ def mostrar_registro(ruta_logo):
                 st.session_state.pantalla = "login"
                 st.rerun()
 
-                print("hola")
+                print("hola, tiene virus ustedes")

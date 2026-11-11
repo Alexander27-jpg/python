@@ -105,3 +105,12 @@ def ejecutar_modo_comprador():
     st.markdown("---")
     if st.button("📦 Ver mis pedidos en tránsito"):
         st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
+
+
+
+
+
+
+
+# ejecutar
+# py -m streamlit run main.py
