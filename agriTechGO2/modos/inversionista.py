@@ -283,4 +283,3 @@ def ejecutar_modo_inversionista():
 
 
 
-print("por el emperador")
