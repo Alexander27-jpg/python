@@ -9,7 +9,7 @@ def comun_estado_cosecha(cosecha):
     """Calcula el estado usando cantidad y disponibilidad."""
     if cosecha["cantidad"] <= 0:
         return "Agotada"
-    return "Disponible" if cosecha["activa"] else "Pausada"
+    return "Disponible" if cosecha.get("activa", True) else "Pausada"
 
 def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
     """Consulta las cosechas registradas en la sesión actual."""
@@ -57,19 +57,20 @@ def ejecutar_modo_comprador():
         if busqueda:
             cosechas_disponibles = [
                 c for c in cosechas_disponibles 
-                if busqueda.lower() in c['producto'].lower() or busqueda.lower() in c['finca'].lower()
+                if busqueda.lower() in c.get('producto', '').lower() or busqueda.lower() in c.get('finca', '').lower()
             ]
 
         if not cosechas_disponibles:
             st.warning("No se encontraron productos que coincidan con tu búsqueda.")
         else:
+            # Mostrar en tarjetas organizadas en filas de 3 columnas (Grid visual)
             cols = st.columns(3)
             for idx, cosecha in enumerate(cosechas_disponibles):
                 col_actual = cols[idx % 3]
                 with col_actual:
                     with st.container(border=True):
-                        st.markdown(f"#### 📦 {cosecha['producto']}")
-                        st.caption(f"🏡 **{cosecha['finca']}**")
+                        st.markdown(f"#### 📦 {cosecha.get('producto', 'Producto')}")
+                        st.caption(f"🏡 **{cosecha.get('finca', 'N/D')}**")
                         
                         if cosecha.get("foto"):
                             st.image(cosecha["foto"], use_container_width=True)
@@ -80,37 +81,52 @@ def ejecutar_modo_comprador():
                                 </div>
                             """, unsafe_allow_html=True)
                             
-                        st.write(f"**Precio:** {cop(cosecha['precio'])} por {cosecha['unidad']}")
-                        st.write(f"**Disponible:** {cosecha['cantidad']:g} {cosecha['unidad']}")
-                        st.markdown(f"**Calidad:** {cosecha['calidad']}")
+                        precio = cosecha.get('precio', 0)
+                        unidad = cosecha.get('unidad', 'kg')
+                        cantidad_disponible = cosecha.get('cantidad', 0)
                         
-                        if st.button(f"🛒 Comprar Lote", key=f"comprar_lote_{cosecha['id']}_{idx}"):
+                        st.write(f"**Precio:** {cop(precio)} por {unidad}")
+                        st.write(f"**Disponible:** {cantidad_disponible:g} {unidad}")
+                        st.markdown(f"**Calidad:** {cosecha.get('calidad', 'Estándar')}")
+                        
+                        # Selector de cantidad que el comprador desea adquirir
+                        cantidad_a_comprar = st.number_input(
+                            f"Cantidad a comprar ({unidad}):",
+                            min_value=1.0,
+                            max_value=float(cantidad_disponible),
+                            value=1.0,
+                            step=1.0,
+                            key=f"cant_{cosecha['id']}_{idx}"
+                        )
+                        
+                        # Mostrar el precio total calculado en tiempo real
+                        precio_total = cantidad_a_comprar * precio
+                        st.info(f"**Total a pagar:** {cop(precio_total)}")
+                        
+                        # Botón interactivo conectado con la lógica de inventario real
+                        if st.button(f"🛒 Comprar {cantidad_a_comprar:g} {unidad}", key=f"comprar_lote_{cosecha['id']}_{idx}"):
                             propietario_id = cosecha['agricultor_id']
                             cosechas_originales = st.session_state["agri_datos"][propietario_id]["cosechas"]
                             
                             compra_realizada = False
                             for orig in cosechas_originales:
                                 if orig['id'] == cosecha['id']:
-                                    if orig['cantidad'] > 0:
-                                        orig['cantidad'] -= 1
+                                    if orig['cantidad'] >= cantidad_a_comprar:
+                                        orig['cantidad'] -= cantidad_a_comprar
                                         compra_realizada = True
+                                        if orig['cantidad'] == 0:
+                                            orig['estado'] = 'Agotada'
                                     break
                                     
                             if compra_realizada:
-                                st.success(f"¡Compra exitosa! Has adquirido {cosecha['producto']} de la **{cosecha['finca']}**.")
+                                st.success(f"¡Compra exitosa! Adquiriste {cantidad_a_comprar:g} {unidad} de {cosecha.get('producto')} de la **{cosecha.get('finca')}**.")
                                 st.rerun()
                             else:
-                                st.error("Lo sentimos, este lote ya se encuentra agotado.")
+                                st.error("No hay suficiente cantidad disponible en este lote.")
 
     st.markdown("---")
     if st.button("📦 Ver mis pedidos en tránsito"):
         st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar!")
-
-
-
-
-
-
-
+        
 # ejecutar
 # py -m streamlit run main.py
