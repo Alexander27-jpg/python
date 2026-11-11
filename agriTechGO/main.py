@@ -2,7 +2,7 @@ import streamlit as st
 import os
 
 # Configuración inicial de la página ancha
-st.set_page_config(page_title="agriTechGO", page_icon="🌱", layout="wide")
+st.set_page_config(page_title="agriTechGO", page_icon="", layout="wide")
 
 # Nombre del archivo del logo en la raíz
 RUTA_LOGO = "logo.png"
