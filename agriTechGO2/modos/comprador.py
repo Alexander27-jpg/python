@@ -134,6 +134,42 @@ def ejecutar_modo_comprador():
     st.markdown("---")
     if st.button("📦 Ver mis pedidos en tránsito"):
         st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar tu compra!")
-          
+
+
+
+
+
+
+
+ # --- BLOQUE PARA PRUEBAS DIRECTAS ---
+if __name__ == "__main__":
+    import streamlit as st
+    # Creamos un usuario de prueba simulado en la memoria para no pasar por el login
+    if "usuario" not in st.session_state:
+        st.session_state.usuario = "Luis Comprador (Prueba)"
+    if "agri_datos" not in st.session_state:
+        # Metemos un producto de prueba para que la ventana no aparezca vacía
+        st.session_state.agri_datos = {
+            "agricultor_prueba": {
+                "cosechas": [
+                    {
+                        "id": "1",
+                        "producto": "Café Especial Caturra",
+                        "finca": "Finca El Paraíso",
+                        "precio": 85000,
+                        "unidad": "kg",
+                        "cantidad": 50,
+                        "calidad": "Premium",
+                        "activa": True,
+                        "foto": None
+                    }
+                ]
+            }
+        }
+    
+    # Ejecutamos tu función directamente
+    ejecutar_modo_comprador()
+
 # ejecutar
+# streamlit run modos/comprador.py
 # py -m streamlit run main.py
