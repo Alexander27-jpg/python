@@ -584,5 +584,7 @@ def ejecutar_modo_agricultor():
                         text=f"Financiación: {progreso * 100:.1f}%",
                     )
 
+print("Prueba ejecucion")
+
 
 
