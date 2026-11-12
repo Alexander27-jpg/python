@@ -168,7 +168,7 @@ if __name__ == "__main__":
         }
     
     # Ejecutamos tu función directamente
-    ejecutar_modo_comprador()
+    #ejecutar_modo_comprador()
 
 # ejecutar
 # streamlit run modos/comprador.py
