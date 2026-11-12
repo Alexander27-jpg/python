@@ -1,15 +1,20 @@
 import streamlit as st
 
+# ----------------------------------------------------------------------
+# Utilidades comunes
+# ----------------------------------------------------------------------
 def cop(valor):
     """Formatea un número como pesos colombianos: $1.500.000 COP"""
     signo = "-" if valor < 0 else ""
     return f"{signo}${abs(valor):,.0f} COP".replace(",", ".")
+
 
 def comun_estado_cosecha(cosecha):
     """Calcula el estado usando cantidad y disponibilidad."""
     if cosecha["cantidad"] <= 0:
         return "Agotada"
     return "Disponible" if cosecha.get("activa", True) else "Pausada"
+
 
 def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
     """Consulta las cosechas registradas en la sesión actual por los agricultores."""
@@ -32,144 +37,300 @@ def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
 
     return resultados
 
+
+# ----------------------------------------------------------------------
+# Estilos (barra de búsqueda, panel azul de finca)
+# ----------------------------------------------------------------------
+ESTILOS = """
+<style>
+.finca-panel {
+    background: #4068A8;
+    color: white;
+    border-radius: 10px;
+    padding: 18px;
+    min-height: 260px;
+}
+.finca-panel h3 { color: white; margin: 0 0 8px 0; }
+.finca-panel p  { margin: 4px 0; font-size: 0.95rem; }
+.sin-foto {
+    background:#EAF3E8; border-radius:8px; height:140px;
+    display:flex; align-items:center; justify-content:center; color:#24543B;
+}
+
+/* ---------- Carrusel horizontal por finca ---------- */
+.finca-banner {
+    background: #4068A8;
+    color: white;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 8px;
+}
+.finca-banner h3 { color: white; margin: 0 0 4px 0; }
+.finca-banner p  { margin: 2px 0; font-size: 0.9rem; opacity: 0.95; }
+.finca-banner .hint { font-size: 0.8rem; opacity: 0.8; margin-top: 6px; }
+
+div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    gap: 1rem;
+    padding: 8px 4px 14px 4px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+div[class*="st-key-carrusel_"] div[data-testid="stColumn"],
+div[class*="st-key-carrusel_"] div[data-testid="column"] {
+    flex: 0 0 260px !important;
+    min-width: 260px !important;
+    width: 260px !important;
+    scroll-snap-align: start;
+}
+div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scrollbar {
+    height: 8px;
+}
+div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb {
+    background: #4068A8;
+    border-radius: 8px;
+}
+div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-track {
+    background: #E3EAF5;
+    border-radius: 8px;
+}
+</style>
+"""
+
+
+# ----------------------------------------------------------------------
+# Lógica de compra y pedidos
+# ----------------------------------------------------------------------
+def _registrar_compra(cosecha, cantidad):
+    """Descuenta el inventario del agricultor y guarda el pedido. Devuelve True/False."""
+    lotes = st.session_state["agri_datos"][cosecha["agricultor_id"]]["cosechas"]
+
+    for orig in lotes:
+        if orig["id"] == cosecha["id"]:
+            if orig["cantidad"] < cantidad:
+                return False
+            orig["cantidad"] -= cantidad
+            if orig["cantidad"] <= 1e-9:
+                orig["cantidad"] = 0
+
+            pedidos = st.session_state.setdefault("pedidos_comprador", [])
+            pedidos.append({
+                "Producto": cosecha.get("producto", "Producto"),
+                "Finca": cosecha.get("finca", "N/D"),
+                "Cantidad": f"{cantidad:g} {cosecha.get('unidad', 'kg')}",
+                "Total": cop(cantidad * cosecha.get("precio", 0)),
+                "Estado": "En tránsito",
+            })
+            return True
+    return False
+
+
+# ----------------------------------------------------------------------
+# Componentes visuales
+# ----------------------------------------------------------------------
+def _tarjeta_producto(cosecha, clave):
+    """Tarjeta de producto (imagen, nombre, precio y compra)."""
+    unidad = cosecha.get("unidad", "kg")
+    precio = cosecha.get("precio", 0)
+    disponible = float(cosecha.get("cantidad", 0))
+
+    with st.container(border=True):
+        if cosecha.get("foto"):
+            st.image(cosecha["foto"], use_container_width=True)
+        else:
+            st.markdown('<div class="sin-foto"><b>🌱 Cosecha Local</b></div>',
+                        unsafe_allow_html=True)
+
+        st.markdown(f"**{cosecha.get('producto', 'Producto')}**")
+        st.caption(f"{cop(precio)} por {unidad} · {disponible:g} {unidad} disp.")
+        st.caption(f"⭐ {cosecha.get('calidad', 'Estándar')}")
+
+        with st.expander("🛒 Comprar"):
+            minimo = min(1.0, disponible)
+            cantidad = st.number_input(
+                f"¿Cuántos {unidad}?",
+                min_value=minimo,
+                max_value=disponible,
+                value=minimo,
+                step=1.0 if disponible >= 1 else 0.5,
+                key=f"cant_{clave}",
+            )
+            st.markdown(f"**Total:** {cop(cantidad * precio)}")
+
+            if st.button("✅ Confirmar compra", key=f"btn_{clave}"):
+                if _registrar_compra(cosecha, cantidad):
+                    st.session_state["flash_comprador"] = (
+                        f"¡Compra exitosa! Adquiriste {cantidad:g} {unidad} "
+                        f"de {cosecha.get('producto')}."
+                    )
+                    st.rerun()
+                else:
+                    st.error("No hay suficiente cantidad disponible en este lote.")
+
+
+def _banner_finca(nombre, lotes):
+    """Encabezado azul de la finca (se ve bien en PC y en celular)."""
+    productos = ", ".join(sorted({l.get("producto", "") for l in lotes}))
+    ubicacion = lotes[0].get("ubicacion") or lotes[0].get("municipio") or "Norte de Santander"
+    pista = '<p class="hint">Desliza para ver más productos ➜</p>' if len(lotes) > 1 else ""
+    st.markdown(
+        f"""
+        <div class="finca-banner">
+            <h3>🏡 {nombre}</h3>
+            <p>📍 {ubicacion} · 📦 {len(lotes)} producto(s)</p>
+            <p>🌾 {productos}</p>
+            {pista}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _fila_finca(nombre, lotes):
+    """Una finca = banner azul + carrusel horizontal con todos sus productos."""
+    _banner_finca(nombre, lotes)
+
+    # La key empieza con "carrusel_": el CSS la usa para activar el scroll horizontal
+    clave_finca = "".join(ch if ch.isalnum() else "_" for ch in nombre)
+    with st.container(key=f"carrusel_{clave_finca}"):
+        cols = st.columns(len(lotes))
+        for col, lote in zip(cols, lotes):
+            with col:
+                _tarjeta_producto(lote, f"{lote['id']}_{lote['agricultor_id']}")
+
+    st.divider()
+
+
+# ----------------------------------------------------------------------
+# Vistas
+# ----------------------------------------------------------------------
+def _barra_busqueda():
+    """Barra de búsqueda centrada, como en el mockup."""
+    _, centro, _ = st.columns([1, 3, 1])
+    with centro:
+        c_input, c_btn = st.columns([5, 1])
+        texto = c_input.text_input(
+            "Buscar",
+            placeholder="Producto o finca: Café, Yuca, Finca El Mirador...",
+            label_visibility="collapsed",
+            key="busqueda_comprador",
+        )
+        c_btn.button("Buscar", use_container_width=True)
+    return texto.strip().lower()
+
+
+def _vista_inicio():
+    texto = _barra_busqueda()
+    cosechas = comun_listar_cosechas(solo_disponibles=True)
+
+    if texto:
+        cosechas = [
+            c for c in cosechas
+            if texto in c.get("producto", "").lower() or texto in c.get("finca", "").lower()
+        ]
+
+    if not cosechas:
+        st.info("No hay cosechas disponibles que coincidan en este momento.")
+        return
+
+    # Agrupar por finca: cada finca es una fila
+    fincas = {}
+    for c in cosechas:
+        fincas.setdefault(c.get("finca", "N/D"), []).append(c)
+
+    for nombre, lotes in fincas.items():
+        _fila_finca(nombre, lotes)
+
+
+def _vista_fincas():
+    cosechas = comun_listar_cosechas(solo_disponibles=True)
+    fincas = {}
+    for c in cosechas:
+        fincas.setdefault(c.get("finca", "N/D"), []).append(c)
+
+    if not fincas:
+        st.info("Aún no hay fincas con cosechas publicadas.")
+        return
+
+    elegida = st.selectbox("Selecciona una finca", list(fincas.keys()))
+    _fila_finca(elegida, fincas[elegida])
+
+
+def _vista_pedidos():
+    st.subheader("📦 Mis pedidos")
+    pedidos = st.session_state.get("pedidos_comprador", [])
+    if not pedidos:
+        st.info("Aún no has realizado compras. ¡Elige un lote en Inicio!")
+    else:
+        st.dataframe(pedidos, use_container_width=True, hide_index=True)
+
+
+# ----------------------------------------------------------------------
+# Punto de entrada (main.py llama a esta función)
+# ----------------------------------------------------------------------
 def ejecutar_modo_comprador():
     """Ejecuta el panel interactivo del Comprador Directo"""
-    
-    # 1. Encabezado principal y bienvenida clara
+    st.markdown(ESTILOS, unsafe_allow_html=True)
+
+    usuario = st.session_state.get("usuario", "Comprador")
+
+    # Menú lateral izquierdo (equivale al menú del mockup)
+    with st.sidebar:
+        st.markdown("### 🛒 Comprador")
+        st.caption(f"Hola, {usuario}")
+        st.markdown("**Descubrir**")
+        vista = st.radio(
+            "Menú",
+            ["🏠 Inicio", "🏡 Fincas", "📦 Mis pedidos"],
+            label_visibility="collapsed",
+            key="vista_comprador",
+        )
+
     st.title("🛒 Comprar Alimentos del Campo")
-    usuario_actual = st.session_state.get("usuario", "Comprador")
-    st.success(f"Hola, **{usuario_actual}**. Aquí puedes comprar productos frescos directamente a los agricultores de la región.")
-    
-    st.markdown("---")
-    
-    # Métricas sencillas de impacto para la vista general
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Región", "Norte de Santander")
-    col2.metric("Modelo", "Comercio Justo")
-    col3.metric("Intermediarios", "Cero")
 
-    st.markdown("### 🌾 Lotes Disponibles en el Mercado")
+    # Mensaje de éxito que sobrevive al st.rerun()
+    mensaje = st.session_state.pop("flash_comprador", None)
+    if mensaje:
+        st.success(mensaje)
 
-    # 2. Obtenemos las cosechas reales publicadas en la sesión compartida
-    cosechas_disponibles = comun_listar_cosechas(solo_disponibles=True)
-
-    if not cosechas_disponibles:
-        st.info("⚠️ Aún no hay cosechas publicadas en este momento. Pídele a tu compañero agricultor que registre una cosecha.")
+    if vista == "🏠 Inicio":
+        _vista_inicio()
+    elif vista == "🏡 Fincas":
+        _vista_fincas()
     else:
-        # 3. Buscador sencillo y amigable
-        busqueda = st.text_input("🔍 Escribe el nombre del producto o finca que buscas:", placeholder="Ej. Café, Yuca, Finca El Mirador...")
-        
-        if busqueda:
-            cosechas_disponibles = [
-                c for c in cosechas_disponibles 
-                if busqueda.lower() in c.get('producto', '').lower() or busqueda.lower() in c.get('finca', '').lower()
-            ]
-
-        if not cosechas_disponibles:
-            st.warning("No encontramos productos que coincidan con tu búsqueda.")
-        else:
-            # 4. Diseño en tarjetas organizadas en filas de 3 columnas (Grid visual)
-            cols = st.columns(3)
-            for idx, cosecha in enumerate(cosechas_disponibles):
-                col_actual = cols[idx % 3]
-                with col_actual:
-                    # Cada tarjeta se dibuja dentro de un contenedor con borde
-                    with st.container(border=True):
-                        st.subheader(f"📦 {cosecha.get('producto', 'Producto')}")
-                        st.write(f"🏡 **Finca:** {cosecha.get('finca', 'N/D')}")
-                        
-                        # Mostrar imagen si fue cargada, o un recuadro representativo
-                        if cosecha.get("foto"):
-                            st.image(cosecha["foto"], use_container_width=True)
-                        else:
-                            st.markdown("""
-                                <div style="background:#EAF3E8; border-radius:8px; height:100px; display:flex; align-items:center; justify-content:center; color:#24543B;">
-                                    <b>🌱 Cosecha Local</b>
-                                </div>
-                            """, unsafe_allow_html=True)
-                            
-                        precio = cosecha.get('precio', 0)
-                        unidad = cosecha.get('unidad', 'kg')
-                        cantidad_disponible = cosecha.get('cantidad', 0)
-                        
-                        st.write(f"💰 **Precio:** {cop(precio)} por {unidad}")
-                        st.write(f"📊 **Disponible:** {cantidad_disponible:g} {unidad}")
-                        st.markdown(f"⭐ **Calidad:** {cosecha.get('calidad', 'Estándar')}")
-                        
-                        # 5. Selector numérico para que el usuario elija cuántas unidades llevar
-                        cantidad_deseada = st.number_input(
-                            f"¿Cuántos {unidad} deseas llevar?",
-                            min_value=1.0,
-                            max_value=float(cantidad_disponible),
-                            value=1.0,
-                            step=1.0,
-                            key=f"cant_{cosecha['id']}_{idx}"
-                        )
-                        
-                        # Cálculo del total en tiempo real para mayor transparencia
-                        total_pagar = cantidad_deseada * precio
-                        st.markdown(f"**Total a pagar:** {cop(total_pagar)}")
-                        
-                        # 6. Botón de compra que descuenta el inventario real del agricultor
-                        if st.button(f"✅ Confirmar Compra", key=f"btn_comprar_{cosecha['id']}_{idx}"):
-                            propietario_id = cosecha['agricultor_id']
-                            cosechas_originales = st.session_state["agri_datos"][propietario_id]["cosechas"]
-                            
-                            compra_realizada = False
-                            for orig in cosechas_originales:
-                                if orig['id'] == cosecha['id']:
-                                    if orig['cantidad'] >= cantidad_deseada:
-                                        orig['cantidad'] -= cantidad_deseada
-                                        compra_realizada = True
-                                        if orig['cantidad'] == 0:
-                                            orig['estado'] = 'Agotada'
-                                    break
-                                    
-                            if compra_realizada:
-                                st.success(f"¡Compra exitosa! Adquiriste {cantidad_deseada:g} {unidad} de {cosecha.get('producto')}.")
-                                st.rerun() # Recarga la pantalla para actualizar el stock de inmediato
-                            else:
-                                st.error("No hay suficiente cantidad disponible en este lote.")
-
-    st.markdown("---")
-    if st.button("📦 Ver mis pedidos en tránsito"):
-        st.info("No tienes pedidos en camino actualmente. ¡Selecciona un lote arriba para iniciar tu compra!")
+        _vista_pedidos()
 
 
-
-
-
-
-
- # --- BLOQUE PARA PRUEBAS DIRECTAS ---
+# --- BLOQUE PARA PRUEBAS DIRECTAS ---
 if __name__ == "__main__":
-    import streamlit as st
-    # Creamos un usuario de prueba simulado en la memoria para no pasar por el login
     if "usuario" not in st.session_state:
         st.session_state.usuario = "Luis Comprador (Prueba)"
     if "agri_datos" not in st.session_state:
-        # Metemos un producto de prueba para que la ventana no aparezca vacía
         st.session_state.agri_datos = {
-            "agricultor_prueba": {
+            "agricultor_juan": {
                 "cosechas": [
-                    {
-                        "id": "1",
-                        "producto": "Café Especial Caturra",
-                        "finca": "Finca El Paraíso",
-                        "precio": 85000,
-                        "unidad": "kg",
-                        "cantidad": 50,
-                        "calidad": "Premium",
-                        "activa": True,
-                        "foto": None
-                    }
+                    {"id": "1", "producto": "Café Especial Caturra", "finca": "Finca Juan",
+                     "precio": 85000, "unidad": "kg", "cantidad": 50,
+                     "calidad": "Premium", "activa": True, "foto": None},
+                    {"id": "2", "producto": "Pollo", "finca": "Finca Juan",
+                     "precio": 12000, "unidad": "kg", "cantidad": 30,
+                     "calidad": "Fresco", "activa": True, "foto": None},
                 ]
-            }
+            },
+            "agricultor_andres": {
+                "cosechas": [
+                    {"id": "3", "producto": "Arroz", "finca": "Finca Andrés",
+                     "precio": 4500, "unidad": "kg", "cantidad": 200,
+                     "calidad": "Estándar", "activa": True, "foto": None},
+                    {"id": "4", "producto": "Maíz", "finca": "Finca Andrés",
+                     "precio": 3000, "unidad": "kg", "cantidad": 120,
+                     "calidad": "Estándar", "activa": True, "foto": None},
+                ]
+            },
         }
-    
-    # Ejecutamos tu función directamente
+
     ejecutar_modo_comprador()
 
-# ejecutar
-# streamlit run modos/comprador.py
-# py -m streamlit run main.py
+# Para probar solo esta parte:  py -m streamlit run modos/comprador.py
+# Para probar todo el proyecto: py -m streamlit run main.py
