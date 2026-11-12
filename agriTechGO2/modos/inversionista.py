@@ -13,7 +13,7 @@ from database.inversionista_db import (
 
 
 def cop(valor):
-    
+
     signo = "-" if valor < 0 else ""
     return f"{signo}${abs(valor):,.0f} COP".replace(",", ".")
 
@@ -348,4 +348,10 @@ def ejecutar_modo_inversionista():
         inv_tab_inversiones(datos)
 
     with tab_wallet:
+
         inv_tab_wallet(usuario_id, datos)
+
+        inv_tab_wallet()
+
+print("por el emperador2")
+
