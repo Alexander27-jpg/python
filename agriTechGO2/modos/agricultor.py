@@ -338,3 +338,5 @@ def ejecutar_modo_agricultor():
                     "descripcion": agri_descripcion_perfil.strip()
                 })
                 st.success("Perfil guardado con éxito.")
+
+                print ("Joanthan ")
