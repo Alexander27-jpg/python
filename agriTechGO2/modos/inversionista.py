@@ -351,7 +351,7 @@ def ejecutar_modo_inversionista():
 
         inv_tab_wallet(usuario_id, datos)
 
-        inv_tab_wallet()
+
 
 print("por el emperador!!!")
 
