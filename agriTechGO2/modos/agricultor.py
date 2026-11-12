@@ -68,7 +68,7 @@ def ejecutar_modo_agricultor():
     agri_datos = st.session_state["agri_datos"][agri_usuario]
     agri_cosechas = agri_datos["cosechas"]
 
-    # ENCABEZADO
+    # ENCA
     st.markdown(
         f"""
         <div style="
@@ -337,4 +337,4 @@ def ejecutar_modo_agricultor():
                     "finca_principal": agri_finca_perfil.strip(),
                     "descripcion": agri_descripcion_perfil.strip()
                 })
-                st.success("Perfil guardado con éxito.")
+                st.success("Perfil guardado con éxito.") 

@@ -372,7 +372,6 @@ def mostrar_registro(ruta_logo):
                 st.session_state.pantalla = "login"
                 st.rerun()
 
-                print("hola")
 
                 # Desde cualquier archivo de tu proyecto (como login.py)
 from conexion import obtener_conexion
