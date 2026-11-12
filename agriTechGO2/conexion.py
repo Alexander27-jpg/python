@@ -6,7 +6,8 @@ def obtener_conexion():
             host="gateway01.us-east-1.prod.aws.tidbcloud.com",
             port=4000,
             user="38EaRcZscBwS5ba.root",
-            password="AxJTDJtfhUwNPG70"
+            password="AxJTDJtfhUwNPG70",
+            database="agritechgo"
         )
         if conexion.is_connected():
             return conexion

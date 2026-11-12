@@ -1,7 +1,19 @@
 import streamlit as st
 from datetime import date
 from html import escape
-from uuid import uuid4
+from mysql.connector import Error as ErrorMySQL
+
+from database.agricultor_db import (
+    obtener_productor_demo,
+    listar_cosechas,
+    listar_fincas,
+    leer_perfil,
+    guardar_perfil,
+    registrar_cosecha,
+    actualizar_cosecha,
+    publicar_proyecto,
+    listar_proyectos_productor,
+)
 import unicodedata
 
 def comun_estado_cosecha(cosecha):
@@ -11,29 +23,20 @@ def comun_estado_cosecha(cosecha):
     return "Disponible" if cosecha["activa"] else "Pausada"
 
 def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
-    """Consulta las cosechas registradas en esta sesión."""
-    resultados = []
-    datos_agricultores = st.session_state.get("agri_datos", {})
+    """Consulta cosechas persistentes en TiDB."""
+    registros = listar_cosechas(
+        agricultor_id=agricultor_id,
+        solo_disponibles=solo_disponibles,
+    )
 
-    for propietario, datos in datos_agricultores.items():
-        if agricultor_id is not None and propietario != agricultor_id:
-            continue
+    for registro in registros:
+        registro["estado"] = comun_estado_cosecha(registro)
 
-        for cosecha in datos.get("cosechas", []):
-            registro = dict(cosecha)
-            registro["agricultor_id"] = propietario
-            registro["estado"] = comun_estado_cosecha(registro)
-
-            if solo_disponibles and registro["estado"] != "Disponible":
-                continue
-
-            resultados.append(registro)
-
-    return resultados
+    return registros
 
 def ejecutar_modo_agricultor():
     """Ejecuta el panel completo para el perfil de Agricultor / Caficultor"""
-    
+
     def agri_pesos(valor):
         return "$" + f"{valor:,.0f}".replace(",", ".") + " COP"
 
@@ -54,19 +57,26 @@ def ejecutar_modo_agricultor():
             errores.append("El precio debe ser mayor que cero.")
         return errores
 
-    agri_usuario = str(st.session_state.get("usuario", ""))
+    agri_usuario = str(st.session_state.get("usuario", "")).strip()
 
-    if "agri_datos" not in st.session_state:
-        st.session_state["agri_datos"] = {}
+    if not agri_usuario:
+        st.error("Ingresa primero con un usuario.")
+        return
 
-    if agri_usuario not in st.session_state["agri_datos"]:
-        st.session_state["agri_datos"][agri_usuario] = {
-            "cosechas": [],
-            "aviso": ""
-        }
+    try:
+        agri_usuario_id = obtener_productor_demo(agri_usuario)
+        agri_cosechas = comun_listar_cosechas(agri_usuario_id)
+        agri_fincas_bd = listar_fincas(agri_usuario_id)
+        agri_perfil = leer_perfil(agri_usuario_id)
+    except (ErrorMySQL, ConnectionError, ValueError) as error:
+        st.error("No se pudo cargar la información del productor.")
+        if isinstance(error, ValueError):
+            st.warning(str(error))
+        elif isinstance(error, ErrorMySQL):
+            st.caption(f"Código de base de datos: {error.errno}")
+        return
 
-    agri_datos = st.session_state["agri_datos"][agri_usuario]
-    agri_cosechas = agri_datos["cosechas"]
+    agri_aviso_key = f"agri_aviso_{agri_usuario_id}"
 
     # ENCA
     st.markdown(
@@ -98,34 +108,51 @@ def ejecutar_modo_agricultor():
     )
 
     st.caption(
-        "Prototipo: los registros son temporales y se conectan en tiempo real "
-        "con los compradores de la plataforma."
+        "Tus registros se guardan en TiDB Cloud. "
+        "La información se consulta al cargar o actualizar la vista."
     )
 
-    if agri_datos["aviso"]:
-        st.success(agri_datos["aviso"])
-        agri_datos["aviso"] = ""
+    agri_aviso = st.session_state.pop(agri_aviso_key, "")
+    if agri_aviso:
+        st.success(agri_aviso)
 
     agri_disponibles = sum(
-        agri_estado(c) == "Disponible" for c in agri_cosechas
+        agri_estado(cosecha) == "Disponible"
+        for cosecha in agri_cosechas
     )
-    agri_fincas = {
-        c["finca"].strip().casefold() for c in agri_cosechas
-    }
+
 
     agri_col1, agri_col2, agri_col3 = st.columns(3)
-    agri_col1.metric("Cosechas registradas", len(agri_cosechas))
-    agri_col2.metric("Cosechas disponibles", agri_disponibles)
-    agri_col3.metric("Fincas / lotes", len(agri_fincas))
+
+    agri_col1.metric(
+        "Cosechas registradas",
+        len(agri_cosechas),
+    )
+    agri_col2.metric(
+        "Cosechas disponibles",
+        agri_disponibles,
+    )
+    agri_col3.metric(
+        "Fincas / lotes",
+        len(agri_fincas_bd),
+    )
 
     st.markdown("---")
 
-    agri_tab1, agri_tab2, agri_tab3, agri_tab4, agri_tab5 = st.tabs([
+    (
+        agri_tab1,
+        agri_tab2,
+        agri_tab3,
+        agri_tab4,
+        agri_tab5,
+        agri_tab6,
+    ) = st.tabs([
         "🌿 Mis cosechas",
         "➕ Registrar cosecha",
         "📦 Pedidos",
         "💰 Pagos",
-        "👤 Mi perfil"
+        "👤 Mi perfil",
+        "📈 Proyectos de inversión",
     ])
 
     # SECCIÓN 1: MIS COSECHAS
@@ -165,7 +192,7 @@ def ejecutar_modo_agricultor():
             ]
 
             st.caption(f"Mostrando {len(agri_visibles)} de {len(agri_cosechas)} cosechas")
-            
+
             for agri_c in agri_visibles:
                 agri_id = agri_c["id"]
                 agri_estado_actual = agri_estado(agri_c)
@@ -230,11 +257,25 @@ def ejecutar_modo_agricultor():
                             agri_guardar = st.form_submit_button("Guardar cambios", use_container_width=True)
 
                         if agri_guardar:
-                            agri_c["cantidad"] = agri_nueva_cantidad
-                            agri_c["precio"] = agri_nuevo_precio
-                            agri_c["activa"] = agri_activa
-                            agri_datos["aviso"] = "Información de la cosecha actualizada."
-                            st.rerun()
+                            try:
+                                actualizar_cosecha(
+                                    agri_usuario_id,
+                                    agri_id,
+                                    agri_nueva_cantidad,
+                                    agri_nuevo_precio,
+                                    agri_activa,
+                                )
+                            except ValueError as error:
+                                st.error(str(error))
+                            except (ErrorMySQL, ConnectionError):
+                                st.error(
+                                    "No se pudo guardar el cambio en TiDB."
+                                )
+                            else:
+                                st.session_state[agri_aviso_key] = (
+                                    "Cosecha actualizada en la base de datos."
+                                )
+                                st.rerun()
 
     # SECCIÓN 2: REGISTRO DE COSECHA
     with agri_tab2:
@@ -265,20 +306,33 @@ def ejecutar_modo_agricultor():
                 for agri_error in agri_errores:
                     st.error(agri_error)
             else:
-                agri_cosechas.append({
-                    "id": uuid4().hex,
-                    "finca": agri_finca.strip(),
-                    "producto": agri_producto.strip(),
-                    "calidad": agri_calidad,
-                    "unidad": agri_unidad,
-                    "cantidad": agri_cantidad,
-                    "precio": agri_precio,
-                    "fecha": agri_fecha,
-                    "foto": agri_foto.getvalue() if agri_foto is not None else None,
-                    "activa": True
-                })
-                agri_datos["aviso"] = "Cosecha registrada con éxito. Ya está visible para los compradores."
-                st.rerun()
+                try:
+                    registrar_cosecha(
+                        agri_usuario_id,
+                        {
+                            "finca": agri_finca,
+                            "producto": agri_producto,
+                            "calidad": agri_calidad,
+                            "unidad": agri_unidad,
+                            "cantidad": agri_cantidad,
+                            "precio": agri_precio,
+                            "fecha": agri_fecha,
+                            "foto": (
+                                agri_foto.getvalue()
+                                if agri_foto is not None
+                                else None
+                            ),
+                        },
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+                except (ErrorMySQL, ConnectionError):
+                    st.error("No se pudo registrar la cosecha en TiDB.")
+                else:
+                    st.session_state[agri_aviso_key] = (
+                        "Finca y cosecha guardadas en TiDB Cloud."
+                    )
+                    st.rerun()
 
     # SECCIÓN 3: PEDIDOS
     with agri_tab3:
@@ -297,13 +351,6 @@ def ejecutar_modo_agricultor():
         st.subheader("👤 Mi perfil de productor")
         st.write("Cuéntanos quién eres y dónde está tu finca.")
 
-        if "perfil" not in agri_datos:
-            agri_datos["perfil"] = {
-                "nombre": "", "telefono": "", "municipio": "",
-                "vereda": "", "finca_principal": "", "descripcion": ""
-            }
-
-        agri_perfil = agri_datos["perfil"]
         st.caption("Usuario de acceso: " + agri_usuario)
 
         with st.form(f"agri_form_perfil_{agri_usuario}"):
@@ -329,12 +376,213 @@ def ejecutar_modo_agricultor():
                 for err in agri_errores_perfil:
                     st.error(err)
             else:
-                agri_perfil.update({
-                    "nombre": agri_nombre_perfil.strip(),
-                    "telefono": agri_telefono_perfil.strip(),
-                    "municipio": agri_municipio_perfil.strip(),
-                    "vereda": agri_vereda_perfil.strip(),
-                    "finca_principal": agri_finca_perfil.strip(),
-                    "descripcion": agri_descripcion_perfil.strip()
-                })
-                st.success("Perfil guardado con éxito.") 
+                try:
+                    guardar_perfil(
+                        agri_usuario_id,
+                        {
+                            "nombre": agri_nombre_perfil,
+                            "telefono": agri_telefono_perfil,
+                            "municipio": agri_municipio_perfil,
+                            "vereda": agri_vereda_perfil,
+                            "finca_principal": agri_finca_perfil,
+                            "descripcion": agri_descripcion_perfil,
+                        },
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+                except ErrorMySQL as error:
+                    if error.errno == 1062:
+                        st.error(
+                            "Ya tienes otra finca con ese nombre. "
+                            "Utiliza un nombre diferente."
+                        )
+                    else:
+                        st.error(
+                            f"No se pudo guardar el perfil. "
+                            f"Código: {error.errno}."
+                        )
+                except ConnectionError:
+                    st.error("No se pudo conectar con TiDB.")
+                else:
+                    st.session_state[agri_aviso_key] = (
+                        "Perfil y finca principal guardados en TiDB."
+                    )
+                    st.rerun()
+
+    # SECCIÓN 6: PROYECTOS DE INVERSIÓN
+    with agri_tab6:
+        st.subheader("📈 Proyectos de inversión")
+        st.write(
+            "Selecciona una finca y describe qué necesitas financiar."
+        )
+        st.info(
+            "Los proyectos y aportes de esta versión son simulados. "
+            "La rentabilidad indicada es una estimación del proyecto."
+        )
+
+        agri_fincas_activas = {
+            finca["id"]: finca
+            for finca in agri_fincas_bd
+            if finca["activa"]
+        }
+
+        if not agri_fincas_activas:
+            st.warning(
+                "Primero registra una finca desde Mi perfil "
+                "o Registrar cosecha."
+            )
+        else:
+            with st.form(
+                f"agri_publicar_proyecto_{agri_usuario_id}",
+                clear_on_submit=False,
+            ):
+                proyecto_finca_id = st.selectbox(
+                    "Finca donde se realizará el proyecto",
+                    options=list(agri_fincas_activas),
+                    format_func=lambda finca_id: (
+                        agri_fincas_activas[finca_id]["nombre"]
+                    ),
+                )
+
+                proyecto_titulo = st.text_input(
+                    "Nombre del proyecto",
+                    placeholder="Ejemplo: Instalación de riego por goteo",
+                    max_chars=150,
+                )
+
+                proyecto_descripcion = st.text_area(
+                    "¿Qué necesitas financiar y para qué?",
+                    max_chars=2000,
+                    height=120,
+                )
+
+                proyecto_meta = st.number_input(
+                    "Meta de financiación (COP)",
+                    min_value=0.0,
+                    value=0.0,
+                    step=100000.0,
+                    format="%.2f",
+                )
+
+                proyecto_rentabilidad = st.number_input(
+                    "Rentabilidad estimada del proyecto (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=0.0,
+                    step=0.5,
+                    format="%.2f",
+                    help=(
+                        "Porcentaje estimado para el proyecto completo; "
+                        "no es una tasa anual ni una ganancia garantizada."
+                    ),
+                )
+
+                proyecto_riesgo = st.selectbox(
+                    "Riesgo declarado del proyecto",
+                    ["Bajo", "Medio", "Alto"],
+                    index=1,
+                )
+
+                proyecto_ventas = st.number_input(
+                    "Porcentaje de ventas destinado a inversionistas (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=0.0,
+                    step=1.0,
+                    format="%.2f",
+                    help=(
+                        "Condición informativa de la simulación. "
+                        "Todavía no genera repartos ni pagos automáticos."
+                    ),
+                )
+
+                proyecto_publicar = st.form_submit_button(
+                    "Publicar proyecto de simulación",
+                    use_container_width=True,
+                )
+
+            if proyecto_publicar:
+                try:
+                    publicar_proyecto(
+                        agri_usuario_id,
+                        proyecto_finca_id,
+                        {
+                            "titulo": proyecto_titulo,
+                            "descripcion": proyecto_descripcion,
+                            "meta": proyecto_meta,
+                            "rentabilidad_porcentaje": (
+                                proyecto_rentabilidad
+                            ),
+                            "riesgo": proyecto_riesgo,
+                            "porcentaje_ventas": proyecto_ventas,
+                        },
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+                except ErrorMySQL as error:
+                    st.error(
+                        "No se pudo publicar el proyecto. "
+                        f"Código: {error.errno}."
+                    )
+                except ConnectionError:
+                    st.error("No se pudo conectar con TiDB.")
+                else:
+                    st.session_state[agri_aviso_key] = (
+                        "Proyecto guardado. Ya puede consultarse "
+                        "al actualizar la vista Inversionista."
+                    )
+                    st.rerun()
+
+        st.markdown("---")
+        st.subheader("Mis proyectos publicados")
+
+        if st.button(
+            "🔄 Actualizar proyectos",
+            key=f"agri_actualizar_proyectos_{agri_usuario_id}",
+        ):
+            st.rerun()
+
+        try:
+            agri_proyectos = listar_proyectos_productor(
+                agri_usuario_id
+            )
+        except (ErrorMySQL, ConnectionError):
+            st.error("No se pudieron consultar los proyectos.")
+        else:
+            if not agri_proyectos:
+                st.info("Todavía no has publicado proyectos.")
+
+            for proyecto in agri_proyectos:
+                with st.container(border=True):
+                    st.subheader(proyecto["titulo"])
+                    st.caption(
+                        f"Finca: {proyecto['finca']} · "
+                        f"Estado: {proyecto['estado']}"
+                    )
+                    st.write(proyecto["descripcion"] or "")
+
+                    col_meta, col_aportes = st.columns(2)
+                    col_meta.metric(
+                        "Meta",
+                        agri_pesos(proyecto["meta"]),
+                    )
+                    col_aportes.metric(
+                        "Aportes simulados",
+                        agri_pesos(proyecto["recaudado"]),
+                    )
+
+                    progreso = (
+                        float(
+                            proyecto["recaudado"] / proyecto["meta"]
+                        )
+                        if proyecto["meta"] > 0
+                        else 0.0
+                    )
+
+                    st.progress(
+                        max(0.0, min(progreso, 1.0)),
+                        text=f"Financiación: {progreso * 100:.1f}%",
+                    )
+
+
+
