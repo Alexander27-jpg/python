@@ -13,6 +13,9 @@ from database.agricultor_db import (
     actualizar_cosecha,
     publicar_proyecto,
     listar_proyectos_productor,
+    listar_pedidos_agricultor,
+    aceptar_pedido,
+    rechazar_pedido,
 )
 import unicodedata
 
@@ -334,11 +337,163 @@ def ejecutar_modo_agricultor():
                     )
                     st.rerun()
 
+    
     # SECCIÓN 3: PEDIDOS
     with agri_tab3:
-        st.subheader("Mis pedidos")
-        st.info("La recepción de pedidos está vinculada al módulo de transacciones.")
-        st.write("Aquí aparecerán los compradores interesados en tus lotes publicados.")
+        st.subheader("📦 Pedidos recibidos")
+        st.write(
+            "Consulta las solicitudes de compra de tus cosechas."
+        )
+
+        if st.button(
+            "🔄 Actualizar pedidos",
+            key=f"agri_actualizar_pedidos_{agri_usuario_id}",
+        ):
+            st.rerun()
+
+        try:
+            agri_pedidos = listar_pedidos_agricultor(
+                agri_usuario_id
+            )
+
+            pendientes = [
+                p for p in agri_pedidos
+                if p["estado"] == "pendiente"
+            ]
+
+            aceptados = [
+                p for p in agri_pedidos
+                if p["estado"] == "aceptado"
+            ]
+
+            rechazados = [
+                p for p in agri_pedidos
+                if p["estado"] == "rechazado"
+            ]
+
+            met1, met2, met3 = st.columns(3)
+            met1.metric("Pendientes", len(pendientes))
+            met2.metric("Aceptados", len(aceptados))
+            met3.metric("Rechazados", len(rechazados))
+
+            st.markdown("---")
+
+            if not agri_pedidos:
+                st.info(
+                    "Todavía no tienes solicitudes de compra."
+                )
+
+            for pedido in agri_pedidos:
+                with st.container(border=True):
+                    st.markdown(
+                        f"### 📦 Pedido #{pedido['id']}"
+                    )
+
+                    st.caption(
+                        f"Comprador: {pedido['comprador']} · "
+                        f"Finca: {pedido['finca']}"
+                    )
+
+                    col1, col2 = st.columns(2)
+
+                    col1.write(
+                        f"**Producto:** {pedido['producto']}"
+                    )
+                    col1.write(
+                        f"**Cantidad:** "
+                        f"{pedido['cantidad']} {pedido['unidad']}"
+                    )
+
+                    col2.write(
+                        f"**Precio unitario:** "
+                        f"{agri_pesos(pedido['precio_unitario'])}"
+                    )
+                    col2.write(
+                        f"**Total:** "
+                        f"{agri_pesos(pedido['total'])}"
+                    )
+
+                    if pedido["estado"] == "pendiente":
+                        st.warning("⏳ Pendiente de respuesta")
+
+                        btn1, btn2 = st.columns(2)
+
+                        if btn1.button(
+                            "✅ Aceptar pedido",
+                            key=f"agri_aceptar_{pedido['id']}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                aceptar_pedido(
+                                    agri_usuario_id,
+                                    pedido["id"],
+                                )
+                            except ValueError as error:
+                                st.error(str(error))
+                            except ErrorMySQL as error:
+                                st.error(
+                                    "Error al aceptar el pedido. "
+                                    f"Código: {error.errno}."
+                                )
+                            except ConnectionError:
+                                st.error(
+                                    "No se pudo conectar con TiDB."
+                                )
+                            else:
+                                st.session_state[agri_aviso_key] = (
+                                    f"Pedido #{pedido['id']} aceptado. "
+                                    "Inventario actualizado correctamente."
+                                )
+                                st.rerun()
+
+                        if btn2.button(
+                            "❌ Rechazar pedido",
+                            key=f"agri_rechazar_{pedido['id']}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                rechazar_pedido(
+                                    agri_usuario_id,
+                                    pedido["id"],
+                                )
+                            except ValueError as error:
+                                st.error(str(error))
+                            except ErrorMySQL as error:
+                                st.error(
+                                    "Error al rechazar el pedido. "
+                                    f"Código: {error.errno}."
+                                )
+                            except ConnectionError:
+                                st.error(
+                                    "No se pudo conectar con TiDB."
+                                )
+                            else:
+                                st.session_state[agri_aviso_key] = (
+                                    f"Pedido #{pedido['id']} rechazado."
+                                )
+                                st.rerun()
+
+                    elif pedido["estado"] == "aceptado":
+                        st.success(
+                            "✅ Pedido aceptado. Inventario descontado."
+                        )
+
+                    elif pedido["estado"] == "rechazado":
+                        st.error("❌ Pedido rechazado.")
+
+                    elif pedido["estado"] == "entregado":
+                        st.info("📦 Pedido entregado.")
+
+                    elif pedido["estado"] == "cancelado":
+                        st.info("Pedido cancelado.")
+
+        except ErrorMySQL as error:
+            st.error(
+                "No se pudieron consultar los pedidos. "
+                f"Código: {error.errno}."
+            )
+        except ConnectionError:
+            st.error("No se pudo conectar con TiDB.")
 
     # SECCIÓN 4: PAGOS
     with agri_tab4:
