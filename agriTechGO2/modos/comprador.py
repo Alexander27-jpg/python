@@ -1,4 +1,16 @@
 import streamlit as st
+from decimal import Decimal, ROUND_HALF_UP
+from html import escape
+from mysql.connector import Error as ErrorMySQL
+
+from database.agricultor_db import listar_cosechas
+from database.comprador_db import (
+    iniciar_comprador,
+    crear_pedido,
+    listar_pedidos,
+    registrar_pago,
+    listar_pagos
+)
 
 # ----------------------------------------------------------------------
 # Utilidades comunes
@@ -9,33 +21,7 @@ def cop(valor):
     return f"{signo}${abs(valor):,.0f} COP".replace(",", ".")
 
 
-def comun_estado_cosecha(cosecha):
-    """Calcula el estado usando cantidad y disponibilidad."""
-    if cosecha["cantidad"] <= 0:
-        return "Agotada"
-    return "Disponible" if cosecha.get("activa", True) else "Pausada"
 
-
-def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
-    """Consulta las cosechas registradas en la sesión actual por los agricultores."""
-    resultados = []
-    datos_agricultores = st.session_state.get("agri_datos", {})
-
-    for propietario, datos in datos_agricultores.items():
-        if agricultor_id is not None and propietario != agricultor_id:
-            continue
-
-        for cosecha in datos.get("cosechas", []):
-            registro = dict(cosecha)
-            registro["agricultor_id"] = propietario
-            registro["estado"] = comun_estado_cosecha(registro)
-
-            if solo_disponibles and registro["estado"] != "Disponible":
-                continue
-
-            resultados.append(registro)
-
-    return resultados
 
 
 # ----------------------------------------------------------------------
@@ -99,87 +85,115 @@ div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scr
 """
 
 
-# ----------------------------------------------------------------------
-# Lógica de compra y pedidos
-# ----------------------------------------------------------------------
-def _registrar_compra(cosecha, cantidad):
-    """Descuenta el inventario del agricultor y guarda el pedido. Devuelve True/False."""
-    lotes = st.session_state["agri_datos"][cosecha["agricultor_id"]]["cosechas"]
 
-    for orig in lotes:
-        if orig["id"] == cosecha["id"]:
-            if orig["cantidad"] < cantidad:
-                return False
-            orig["cantidad"] -= cantidad
-            if orig["cantidad"] <= 1e-9:
-                orig["cantidad"] = 0
-
-            pedidos = st.session_state.setdefault("pedidos_comprador", [])
-            pedidos.append({
-                "Producto": cosecha.get("producto", "Producto"),
-                "Finca": cosecha.get("finca", "N/D"),
-                "Cantidad": f"{cantidad:g} {cosecha.get('unidad', 'kg')}",
-                "Total": cop(cantidad * cosecha.get("precio", 0)),
-                "Estado": "En tránsito",
-            })
-            return True
-    return False
 
 
 # ----------------------------------------------------------------------
 # Componentes visuales
 # ----------------------------------------------------------------------
-def _tarjeta_producto(cosecha, clave):
-    """Tarjeta de producto (imagen, nombre, precio y compra)."""
-    unidad = cosecha.get("unidad", "kg")
-    precio = cosecha.get("precio", 0)
-    disponible = float(cosecha.get("cantidad", 0))
+
+def _tarjeta_producto(cosecha, comprador_id):
+    unidad = cosecha["unidad"]
+    precio = cosecha["precio"]
+    disponible = cosecha["cantidad"]
+    clave = f"{comprador_id}_{cosecha['id']}"
 
     with st.container(border=True):
         if cosecha.get("foto"):
             st.image(cosecha["foto"], use_container_width=True)
         else:
-            st.markdown('<div class="sin-foto"><b>🌱 Cosecha Local</b></div>',
-                        unsafe_allow_html=True)
+            st.markdown(
+                '<div class="sin-foto"><b>🌱 Cosecha Local</b></div>',
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(f"**{cosecha.get('producto', 'Producto')}**")
-        st.caption(f"{cop(precio)} por {unidad} · {disponible:g} {unidad} disp.")
-        st.caption(f"⭐ {cosecha.get('calidad', 'Estándar')}")
+        st.markdown(f"**{cosecha['producto']}**")
+        st.caption(
+            f"{cop(precio)} por {unidad} · "
+            f"{disponible:g} {unidad} disp."
+        )
+        st.caption(f"⭐ {cosecha['calidad']}")
 
         with st.expander("🛒 Comprar"):
-            minimo = min(1.0, disponible)
-            cantidad = st.number_input(
-                f"¿Cuántos {unidad}?",
-                min_value=minimo,
-                max_value=disponible,
-                value=minimo,
-                step=1.0 if disponible >= 1 else 0.5,
-                key=f"cant_{clave}",
-            )
-            st.markdown(f"**Total:** {cop(cantidad * precio)}")
 
-            if st.button("✅ Confirmar compra", key=f"btn_{clave}"):
-                if _registrar_compra(cosecha, cantidad):
-                    st.session_state["flash_comprador"] = (
-                        f"¡Compra exitosa! Adquiriste {cantidad:g} {unidad} "
-                        f"de {cosecha.get('producto')}."
+            cantidad = st.number_input(
+                f"Cantidad en {unidad}",
+                min_value=0.0,
+                value=0.0,
+                step=1.0 if unidad == "unidad" else 0.1,
+                format="%.3f",
+                key=f"comp_cantidad_{clave}",
+            )
+
+            total = (
+                Decimal(str(cantidad)) * precio
+            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+            st.markdown(f"**Total:** {cop(total)}")
+            st.caption(
+                "El pedido queda pendiente de aceptación. "
+                "No se cobra ni se reserva inventario todavía."
+            )
+
+            if st.button(
+                "✅ Solicitar compra",
+                key=f"comp_solicitar_{clave}",
+            ):
+                try:
+                    pedido_id = crear_pedido(
+                        comprador_id,
+                        cosecha["id"],
+                        cantidad,
+                        precio,
+                        unidad,
+                    )
+                except ValueError as error:
+                    st.error(str(error))
+                except ErrorMySQL as error:
+                    st.error(
+                        "No se pudo confirmar el resultado del pedido. "
+                        "Actualiza Mis pedidos antes de volver a intentarlo. "
+                        f"Código: {error.errno}."
+                    )
+                except ConnectionError:
+                    st.error("No se pudo conectar con TiDB.")
+                else:
+                    st.session_state[
+                        f"comp_aviso_{comprador_id}"
+                    ] = (
+                        f"Pedido #{pedido_id} guardado. "
+                        "Está pendiente de aceptación del agricultor."
                     )
                     st.rerun()
-                else:
-                    st.error("No hay suficiente cantidad disponible en este lote.")
+
 
 
 def _banner_finca(nombre, lotes):
-    """Encabezado azul de la finca (se ve bien en PC y en celular)."""
-    productos = ", ".join(sorted({l.get("producto", "") for l in lotes}))
-    ubicacion = lotes[0].get("ubicacion") or lotes[0].get("municipio") or "Norte de Santander"
-    pista = '<p class="hint">Desliza para ver más productos ➜</p>' if len(lotes) > 1 else ""
+    productos = ", ".join(
+        sorted({lote["producto"] for lote in lotes})
+    )
+
+    ubicacion = " · ".join(
+        parte
+        for parte in (
+            lotes[0].get("municipio"),
+            lotes[0].get("vereda"),
+        )
+        if parte
+    ) or "Ubicación sin registrar"
+
+    pista = (
+        '<p class="hint">Desliza para ver más productos ➜</p>'
+        if len(lotes) > 1
+        else ""
+    )
+
     st.markdown(
         f"""
         <div class="finca-banner">
-            <h3>🏡 {nombre}</h3>
-            <p>📍 {ubicacion} · 📦 {len(lotes)} producto(s)</p>
-            <p>🌾 {productos}</p>
+            <h3>🏡 {escape(nombre)}</h3>
+            <p>📍 {escape(ubicacion)} · 📦 {len(lotes)} producto(s)</p>
+            <p>🌾 {escape(productos)}</p>
             {pista}
         </div>
         """,
@@ -187,113 +201,244 @@ def _banner_finca(nombre, lotes):
     )
 
 
-def _fila_finca(nombre, lotes):
-    """Una finca = banner azul + carrusel horizontal con todos sus productos."""
-    _banner_finca(nombre, lotes)
+def _fila_finca(finca_id, lotes, comprador_id):
+    _banner_finca(lotes[0]["finca"], lotes)
 
-    # La key empieza con "carrusel_": el CSS la usa para activar el scroll horizontal
-    clave_finca = "".join(ch if ch.isalnum() else "_" for ch in nombre)
-    with st.container(key=f"carrusel_{clave_finca}"):
-        cols = st.columns(len(lotes))
-        for col, lote in zip(cols, lotes):
-            with col:
-                _tarjeta_producto(lote, f"{lote['id']}_{lote['agricultor_id']}")
+    with st.container(
+        key=f"carrusel_{comprador_id}_{finca_id}"
+    ):
+        columnas = st.columns(len(lotes))
+
+        for columna, lote in zip(columnas, lotes):
+            with columna:
+                _tarjeta_producto(lote, comprador_id)
 
     st.divider()
+
+
+def _agrupar_fincas(cosechas):
+    fincas = {}
+
+    for cosecha in cosechas:
+        fincas.setdefault(cosecha["finca_id"], []).append(cosecha)
+
+    return fincas
 
 
 # ----------------------------------------------------------------------
 # Vistas
 # ----------------------------------------------------------------------
-def _barra_busqueda():
-    """Barra de búsqueda centrada, como en el mockup."""
+
+def _barra_busqueda(comprador_id):
     _, centro, _ = st.columns([1, 3, 1])
+
     with centro:
         c_input, c_btn = st.columns([5, 1])
-        texto = c_input.text_input(
+
+        busqueda = c_input.text_input(
             "Buscar",
             placeholder="Producto o finca: Café, Yuca, Finca El Mirador...",
             label_visibility="collapsed",
-            key="busqueda_comprador",
+            key=f"comp_busqueda_{comprador_id}",
         )
-        c_btn.button("Buscar", use_container_width=True)
-    return texto.strip().lower()
+
+        c_btn.button(
+            "Buscar",
+            use_container_width=True,
+            key=f"comp_buscar_{comprador_id}",
+        )
+
+    return busqueda.strip().casefold()
 
 
-def _vista_inicio():
-    texto = _barra_busqueda()
-    cosechas = comun_listar_cosechas(solo_disponibles=True)
+def _vista_inicio(comprador_id):
+    busqueda = _barra_busqueda(comprador_id)
+    cosechas = listar_cosechas(solo_disponibles=True)
 
-    if texto:
+    if busqueda:
         cosechas = [
-            c for c in cosechas
-            if texto in c.get("producto", "").lower() or texto in c.get("finca", "").lower()
+            cosecha
+            for cosecha in cosechas
+            if busqueda in cosecha["producto"].casefold()
+            or busqueda in cosecha["finca"].casefold()
         ]
 
     if not cosechas:
-        st.info("No hay cosechas disponibles que coincidan en este momento.")
+        st.info(
+            "No hay cosechas disponibles que coincidan en este momento."
+        )
         return
 
-    # Agrupar por finca: cada finca es una fila
-    fincas = {}
-    for c in cosechas:
-        fincas.setdefault(c.get("finca", "N/D"), []).append(c)
-
-    for nombre, lotes in fincas.items():
-        _fila_finca(nombre, lotes)
+    for finca_id, lotes in _agrupar_fincas(cosechas).items():
+        _fila_finca(finca_id, lotes, comprador_id)
 
 
-def _vista_fincas():
-    cosechas = comun_listar_cosechas(solo_disponibles=True)
-    fincas = {}
-    for c in cosechas:
-        fincas.setdefault(c.get("finca", "N/D"), []).append(c)
+def _vista_fincas(comprador_id):
+    cosechas = listar_cosechas(solo_disponibles=True)
+    fincas = _agrupar_fincas(cosechas)
 
     if not fincas:
-        st.info("Aún no hay fincas con cosechas publicadas.")
+        st.info("Aún no hay fincas con cosechas disponibles.")
         return
 
-    elegida = st.selectbox("Selecciona una finca", list(fincas.keys()))
-    _fila_finca(elegida, fincas[elegida])
+    elegida = st.selectbox(
+        "Selecciona una finca",
+        options=list(fincas),
+        format_func=lambda finca_id: (
+            f"{fincas[finca_id][0]['finca']} · Finca #{finca_id}"
+        ),
+        key=f"comp_finca_{comprador_id}",
+    )
+
+    _fila_finca(elegida, fincas[elegida], comprador_id)
 
 
-def _vista_pedidos():
+
+def _vista_pedidos(comprador_id):
     st.subheader("📦 Mis pedidos")
-    pedidos = st.session_state.get("pedidos_comprador", [])
+
+    pedidos = listar_pedidos(comprador_id)
+
     if not pedidos:
-        st.info("Aún no has realizado compras. ¡Elige un lote en Inicio!")
+        st.info("Aún no tienes pedidos. Elige un producto en Inicio.")
     else:
-        st.dataframe(pedidos, use_container_width=True, hide_index=True)
+        for pedido in pedidos:
+            with st.container(border=True):
+                col1, col2 = st.columns([3, 1])
+
+                with col1:
+                    st.markdown(f"### Pedido #{pedido['id']}")
+                    st.write(f"**Producto:** {pedido['producto']}")
+                    st.write(f"**Finca:** {pedido['finca']}")
+                    st.write(
+                        f"**Cantidad:** "
+                        f"{pedido['cantidad']} {pedido['unidad']}"
+                    )
+                    st.write(f"**Total:** {cop(pedido['total'])}")
+
+                with col2:
+                    estado = pedido["estado"]
+
+                    if estado == "aceptado":
+                        st.success("Aceptado")
+                    elif estado == "pendiente":
+                        st.warning("Pendiente")
+                    elif estado == "rechazado":
+                        st.error("Rechazado")
+                    else:
+                        st.info(estado.capitalize())
+
+                if pedido["estado"] == "aceptado":
+                    if st.button(
+                        "💳 Pagar pedido",
+                        key=f"comp_pagar_{comprador_id}_{pedido['id']}",
+                        use_container_width=True,
+                    ):
+                        try:
+                            pago_id = registrar_pago(
+                                comprador_id,
+                                pedido["id"],
+                            )
+                        except ValueError as error:
+                            st.error(str(error))
+                        except ErrorMySQL as error:
+                            st.error(
+                                f"No se pudo registrar el pago. "
+                                f"Código: {error.errno}."
+                            )
+                        except ConnectionError:
+                            st.error("No se pudo conectar con TiDB.")
+                        else:
+                            st.session_state[
+                                f"comp_aviso_{comprador_id}"
+                            ] = (
+                                f"Pago simulado #{pago_id} "
+                                "registrado correctamente."
+                            )
+                            st.rerun()
+
+    st.markdown("---")
+    st.subheader("💰 Historial de pagos")
+
+    pagos = listar_pagos(comprador_id)
+
+    if not pagos:
+        st.info("Todavía no tienes pagos registrados.")
+        return
+
+    filas = []
+
+    for pago in pagos:
+        filas.append({
+            "Pago": pago["pago_id"],
+            "Pedido": pago["pedido_id"],
+            "Producto": pago["producto"],
+            "Finca": pago["finca"],
+            "Monto": cop(pago["monto"]),
+            "Referencia": pago["referencia"],
+            "Estado": pago["estado"].capitalize(),
+            "Tipo": "Simulado" if pago["es_simulado"] else "Real",
+        })
+
+    st.dataframe(
+        filas,
+        use_container_width=True,
+        hide_index=True,
+    )
+
 
 
 # ----------------------------------------------------------------------
-# Punto de entrada (main.py llama a esta función)
+# Punto de entrada
 # ----------------------------------------------------------------------
+
 def ejecutar_modo_comprador():
-    """Ejecuta el panel interactivo del Comprador Directo"""
+
     st.markdown(ESTILOS, unsafe_allow_html=True)
 
-    usuario = st.session_state.get("usuario", "Comprador")
+    usuario = str(st.session_state.get("usuario", "")).strip()
 
-    # Menú lateral izquierdo (equivale al menú del mockup)
+    if not usuario:
+        st.error("Ingresa primero con un usuario.")
+        return
+
+    try:
+        comprador_id = iniciar_comprador(usuario)
+    except ValueError as error:
+        st.error(str(error))
+        return
+    except (ErrorMySQL, ConnectionError):
+        st.error("No se pudo cargar el comprador desde TiDB.")
+        return
+
     with st.sidebar:
         st.markdown("### 🛒 Comprador")
         st.caption(f"Hola, {usuario}")
         st.markdown("**Descubrir**")
+
         vista = st.radio(
             "Menú",
             ["🏠 Inicio", "🏡 Fincas", "📦 Mis pedidos"],
             label_visibility="collapsed",
-            key="vista_comprador",
+            key=f"comp_vista_{comprador_id}",
         )
 
     st.title("🛒 Comprar Alimentos del Campo")
 
-    # Mensaje de éxito que sobrevive al st.rerun()
-    mensaje = st.session_state.pop("flash_comprador", None)
+    if st.button(
+        "🔄 Actualizar información",
+        key=f"comp_actualizar_{comprador_id}",
+    ):
+        st.rerun()
+
+    mensaje = st.session_state.pop(
+        f"comp_aviso_{comprador_id}",
+        "",
+    )
     if mensaje:
         st.success(mensaje)
 
+<<<<<<< HEAD
     if vista == "🏠 Inicio":
         _vista_inicio()
     elif vista == "🏡 Fincas":
@@ -331,6 +476,22 @@ if __name__ == "__main__":
         }
 
     ejecutar_modo_comprador() 
+=======
+    try:
+        if vista == "🏠 Inicio":
+            _vista_inicio(comprador_id)
+        elif vista == "🏡 Fincas":
+            _vista_fincas(comprador_id)
+        else:
+            _vista_pedidos(comprador_id)
+    except ErrorMySQL as error:
+        st.error(
+            "No se pudo consultar la información. "
+            f"Código: {error.errno}."
+        )
+    except ConnectionError:
+        st.error("No se pudo conectar con TiDB.")
+>>>>>>> 30e535ae39807c8f31f572acdc537f12c0d6f3f9
 
 # Para probar solo esta parte:  py -m streamlit run modos/comprador.py
 # Para probar todo el proyecto: py -m streamlit run main.py
