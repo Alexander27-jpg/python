@@ -354,4 +354,5 @@ def ejecutar_modo_inversionista():
 
 
 print("por el emperador!!!")
+print("De la raza humana")
 
