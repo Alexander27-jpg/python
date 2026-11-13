@@ -330,7 +330,7 @@ if __name__ == "__main__":
             },
         }
 
-    ejecutar_modo_comprador()
+    ejecutar_modo_comprador() 
 
 # Para probar solo esta parte:  py -m streamlit run modos/comprador.py
 # Para probar todo el proyecto: py -m streamlit run main.py
