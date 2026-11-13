@@ -438,13 +438,12 @@ def ejecutar_modo_comprador():
     if mensaje:
         st.success(mensaje)
 
-<<<<<<< HEAD
     if vista == "🏠 Inicio":
-        _vista_inicio()
+        _vista_inicio(comprador_id)
     elif vista == "🏡 Fincas":
-        _vista_fincas()
+        _vista_fincas(comprador_id)
     else:
-        _vista_pedidos()
+        _vista_pedidos(comprador_id)
 
 
 # --- BLOQUE PARA PRUEBAS DIRECTAS ---
@@ -476,22 +475,6 @@ if __name__ == "__main__":
         }
 
     ejecutar_modo_comprador() 
-=======
-    try:
-        if vista == "🏠 Inicio":
-            _vista_inicio(comprador_id)
-        elif vista == "🏡 Fincas":
-            _vista_fincas(comprador_id)
-        else:
-            _vista_pedidos(comprador_id)
-    except ErrorMySQL as error:
-        st.error(
-            "No se pudo consultar la información. "
-            f"Código: {error.errno}."
-        )
-    except ConnectionError:
-        st.error("No se pudo conectar con TiDB.")
->>>>>>> 30e535ae39807c8f31f572acdc537f12c0d6f3f9
-
+    
 # Para probar solo esta parte:  py -m streamlit run modos/comprador.py
 # Para probar todo el proyecto: py -m streamlit run main.py
