@@ -134,7 +134,7 @@ def aplicar_estilos_burbuja():
 
 
 def mostrar_login(ruta_logo):
-    """Pantalla de Login con selección manual de perfil"""
+    """Pantalla de Login exclusiva para admin con selección de perfil"""
     aplicar_estilos_burbuja()
 
     _, col_centro, _ = st.columns([1, 1.25, 1])
@@ -143,10 +143,14 @@ def mostrar_login(ruta_logo):
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_login_burbuja", clear_on_submit=False):
+            # Centrado perfecto del logo con Flexbox dentro de la burbuja blanca
             if os.path.exists(ruta_logo):
-                c1, c2, c3 = st.columns([1, 1, 1])
-                with c2:
-                    st.image(ruta_logo, width=120)
+                st.markdown(
+                    '<div style="display: flex; justify-content: center; margin-bottom: 5px;">',
+                    unsafe_allow_html=True,
+                )
+                st.image(ruta_logo, width=120)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown(
                 '<p class="titulo-burbuja">AgriTechGO</p>',
@@ -158,8 +162,8 @@ def mostrar_login(ruta_logo):
             )
 
             email = st.text_input(
-                "Correo electrónico",
-                placeholder="tucorreo@ejemplo.com",
+                "Usuario",
+                placeholder="tucorreo@gmail.com",
                 value=st.session_state.get("input_email", ""),
             )
             password = st.text_input(
@@ -183,45 +187,19 @@ def mostrar_login(ruta_logo):
             )
 
         if submit:
-            usuario_ingresado = email.strip()
-            if usuario_ingresado == "" or not password:
+            # Limpiamos espacios y convertimos a minúsculas obligatoriamente
+            usuario_ingresado = email.strip().lower()
+            pass_ingresada = password.strip()
+            
+            if usuario_ingresado == "" or not pass_ingresada:
                 st.error("Por favor completa todos los campos.")
+            elif usuario_ingresado == "admin" and pass_ingresada == "admin1234":
+                st.session_state["usuario"] = "admin"
+                st.session_state["rol"] = rol_elegido
+                st.session_state["pantalla"] = "dashboard"
+                st.rerun()
             else:
-                conexion = obtener_conexion()
-                if conexion:
-                    try:
-                        cursor = conexion.cursor(dictionary=True)
-                        query = "SELECT password_hash, rol, nombre FROM usuarios WHERE correo = %s"
-                        cursor.execute(query, (usuario_ingresado,))
-                        usuario_db = cursor.fetchone()
-
-                        if usuario_db:
-                            if usuario_db["password_hash"] == password:
-                                # Validamos que la cuenta tenga el rol seleccionado
-                                if rol_elegido in usuario_db["rol"]:
-                                    st.session_state["usuario"] = usuario_db[
-                                        "nombre"
-                                    ]
-                                    st.session_state["rol"] = rol_elegido
-                                    st.session_state["pantalla"] = "dashboard"
-                                    st.rerun()
-                                else:
-                                    st.error(
-                                        f"Tu cuenta no tiene asignado el rol '{rol_elegido}'. Roles guardados: {usuario_db['rol']}"
-                                    )
-                            else:
-                                st.error("Contraseña incorrecta.")
-                        else:
-                            st.error(
-                                "El correo no está registrado en la plataforma."
-                            )
-                    except Exception as e:
-                        st.error(f"Error al conectar con la base de datos: {e}")
-                    finally:
-                        cursor.close()
-                        conexion.close()
-                else:
-                    st.error("No se pudo establecer conexión con TiDB Cloud.")
+                st.error(f"Acceso denegado.")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -241,6 +219,14 @@ def mostrar_recuperar_password(ruta_logo):
 
     with col_centro:
         with st.form("form_recuperar"):
+            if os.path.exists(ruta_logo):
+                st.markdown(
+                    '<div style="display: flex; justify-content: center; margin-bottom: 5px;">',
+                    unsafe_allow_html=True,
+                )
+                st.image(ruta_logo, width=100)
+                st.markdown("</div>", unsafe_allow_html=True)
+
             st.markdown(
                 '<p class="titulo-burbuja">Recuperar Clave</p>',
                 unsafe_allow_html=True,
@@ -310,6 +296,14 @@ def mostrar_verificar_otp(ruta_logo):
 
     with col_centro:
         with st.form("form_otp"):
+            if os.path.exists(ruta_logo):
+                st.markdown(
+                    '<div style="display: flex; justify-content: center; margin-bottom: 5px;">',
+                    unsafe_allow_html=True,
+                )
+                st.image(ruta_logo, width=100)
+                st.markdown("</div>", unsafe_allow_html=True)
+
             st.markdown(
                 '<p class="titulo-burbuja">Verificar Código</p>',
                 unsafe_allow_html=True,
@@ -366,10 +360,14 @@ def mostrar_registro(ruta_logo):
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("form_registro_burbuja", clear_on_submit=False):
+            # Centrado perfecto del logo con Flexbox en el registro
             if os.path.exists(ruta_logo):
-                c1, c2, c3 = st.columns([1, 1, 1])
-                with c2:
-                    st.image(ruta_logo, width=115)
+                st.markdown(
+                    '<div style="display: flex; justify-content: center; margin-bottom: 5px;">',
+                    unsafe_allow_html=True,
+                )
+                st.image(ruta_logo, width=115)
+                st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown(
                 '<p class="titulo-burbuja">agriTechGO</p>',

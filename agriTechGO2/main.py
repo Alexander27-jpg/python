@@ -4,7 +4,7 @@ import streamlit as st
 # Configuración inicial de la página
 st.set_page_config(
     page_title="AgriTechGO",
-    page_icon="🌱",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
