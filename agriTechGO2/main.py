@@ -1,16 +1,22 @@
-import streamlit as st
 import os
+import streamlit as st
 
 # Configuración inicial de la página
 st.set_page_config(
-    page_title="agriTechGO",
-    page_icon="",
+    page_title="AgriTechGO",
+    page_icon="🌱",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed",
 )
 
 # Importar los módulos de autenticación y modos
-from auth.login import mostrar_splash, mostrar_login, mostrar_registro
+from auth.login import (
+    mostrar_login,
+    mostrar_recuperar_password,
+    mostrar_registro,
+    mostrar_splash,
+    mostrar_verificar_otp,
+)
 from modos.admin import ejecutar_modo_admin
 from modos.agricultor import ejecutar_modo_agricultor
 from modos.comprador import ejecutar_modo_comprador
@@ -29,6 +35,7 @@ if "usuario" not in st.session_state:
 if "rol" not in st.session_state:
     st.session_state.rol = ""
 
+
 # Controlador principal de pantallas
 def main():
     pantalla_actual = st.session_state.get("pantalla", "splash")
@@ -41,6 +48,12 @@ def main():
 
     elif pantalla_actual == "registro":
         mostrar_registro(RUTA_LOGO)
+
+    elif pantalla_actual == "recuperar":
+        mostrar_recuperar_password(RUTA_LOGO)
+
+    elif pantalla_actual == "verificar_otp":
+        mostrar_verificar_otp(RUTA_LOGO)
 
     elif pantalla_actual == "dashboard":
         # Botón superior flotante para cerrar sesión
@@ -66,6 +79,7 @@ def main():
         else:
             # Fallback por defecto si el rol no coincide
             ejecutar_modo_agricultor()
+
 
 if __name__ == "__main__":
     main()
