@@ -212,14 +212,14 @@ def ejecutar_modo_agricultor():
 
             with col_busqueda:
                 agri_busqueda = st.text_input(
-                    "🔎 Buscar producto o finca",
+                    "Buscar producto o finca",
                     placeholder="Ejemplo: café o La Esperanza",
                     key=f"agri_busqueda_{agri_usuario}"
                 )
 
             with col_filtro:
                 agri_filtro = st.selectbox(
-                    "📂 Filtrar cosechas",
+                    "Filtrar cosechas",
                     ["Todas", "Disponible", "Pausada", "Agotada"],
                     key=f"agri_filtro_{agri_usuario}"
                 )
