@@ -142,8 +142,10 @@ def ejecutar_modo_agricultor():
 
     st.markdown("---")
 
-    # Navegación lateral: mantiene las secciones y sus funciones actuales.
+    
+    # MENÚ LATERAL DEL AGRICULTOR
     st.sidebar.markdown("### 🌱 Menú Mi Campo")
+
     opcion_menu = st.sidebar.radio(
         "Navegación:",
         [
@@ -157,6 +159,43 @@ def ejecutar_modo_agricultor():
         key=f"agri_menu_{agri_usuario_id}",
     )
 
+    # PERSONALIZACIÓN VISUAL DEL MENÚ
+    st.markdown(
+        """
+        <style>
+        [data-testid="stSidebar"] [data-testid="stRadio"] label {
+            font-size: 17px !important;
+            padding: 9px 8px !important;
+            min-height: 38px;
+            cursor: pointer;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] p {
+            font-size: 17px !important;
+            font-weight: 600 !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] {
+            gap: 10px !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # AYUDA SEGÚN LA SECCIÓN SELECCIONADA
+    agri_ayudas_menu = {
+        "🌿 Mis cosechas": "Consulta tus productos, cantidades y disponibilidad.",
+        "➕ Registrar cosecha": "Registra los productos que tienes para vender.",
+        "📦 Pedidos": "Revisa las solicitudes de compra que recibes.",
+        "💰 Pagos": "Consulta la información de tus pagos.",
+        "👤 Mi perfil": "Actualiza tus datos personales y los de tu finca.",
+        "📈 Proyectos de inversión": "Publica necesidades de financiación para tu producción."
+    }
+
+    st.sidebar.markdown("---")
+    st.sidebar.info(agri_ayudas_menu[opcion_menu])
+
     # SECCIÓN 1: MIS COSECHAS
     if opcion_menu == "🌿 Mis cosechas":
         st.subheader("🌿 Mis cosechas")
@@ -165,17 +204,26 @@ def ejecutar_modo_agricultor():
         if not agri_cosechas:
             st.info("Aún no tienes cosechas registradas. Ingresa a Registrar cosecha para comenzar.")
         else:
-            agri_busqueda = st.text_input(
-                "Buscar por producto o finca",
-                placeholder="Ejemplo: café o La Esperanza",
-                key=f"agri_busqueda_{agri_usuario}"
+            # BUSCADOR Y FILTRO EN UNA MISMA FILA
+            col_busqueda, col_filtro, col_espacio = st.columns(
+                [1.5, 1, 1],
+                gap="medium"
             )
 
-            agri_filtro = st.selectbox(
-                "Filtrar cosechas",
-                ["Todas", "Disponible", "Pausada", "Agotada"],
-                key=f"agri_filtro_{agri_usuario}"
-            )
+            with col_busqueda:
+                agri_busqueda = st.text_input(
+                    "🔎 Buscar producto o finca",
+                    placeholder="Ejemplo: café o La Esperanza",
+                    key=f"agri_busqueda_{agri_usuario}"
+                )
+
+            with col_filtro:
+                agri_filtro = st.selectbox(
+                    "📂 Filtrar cosechas",
+                    ["Todas", "Disponible", "Pausada", "Agotada"],
+                    key=f"agri_filtro_{agri_usuario}"
+                )
+
 
             def agri_normalizar_busqueda(texto):
                 texto = unicodedata.normalize("NFD", str(texto).strip().casefold())
@@ -388,12 +436,33 @@ def ejecutar_modo_agricultor():
                     st.rerun()
 
 
+
     # SECCIÓN 2: REGISTRO DE COSECHA
     elif opcion_menu == "➕ Registrar cosecha":
-        st.subheader("➕ Registra tu cosecha")
-        st.write("Indica qué vendes, cuánto tienes disponible y el precio de cada unidad.")
 
-        col_formulario, col_vista = st.columns([1.5, 1], gap="large")
+        col_titulo_form, col_titulo_cosechas = st.columns(
+            [1.5, 1],
+            gap="large"
+        )
+
+        with col_titulo_form:
+            st.subheader("➕ Registra tu cosecha")
+            st.write(
+                "Indica qué vendes, cuánto tienes disponible "
+                "y el precio de cada unidad."
+            )
+
+        with col_titulo_cosechas:
+            st.subheader("🌾 Tus cosechas")
+            st.caption(
+                "Selecciona una cosecha para consultar sus detalles."
+            )
+
+        col_formulario, col_vista = st.columns(
+            [1.5, 1],
+            gap="large"
+        )
+
 
         with col_formulario:
             with st.form(f"agri_registro_{agri_usuario}"):
@@ -450,32 +519,64 @@ def ejecutar_modo_agricultor():
                         )
                         st.rerun()
 
+        
         with col_vista:
-            st.markdown(
-                """
-                <div style="background-color:#EAF3E8;padding:20px;border-radius:12px;">
-                    <h4 style="color:#174B35;margin-top:0;">📋 Tu registro</h4>
-                    <p style="color:#24543B;font-size:14px;">
-                        Completa el formulario y guarda tu cosecha.
-                        Aquí puedes consultar un resumen de tus registros actuales.
-                    </p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            st.metric("Cosechas registradas", len(agri_cosechas))
-            if agri_cosechas:
-                st.markdown("**Tus últimas cosechas**")
-                for cosecha_resumen in agri_cosechas[:3]:
-                    with st.container(border=True):
-                        st.write(f"**{cosecha_resumen['producto']}**")
-                        st.caption(
-                            f"{cosecha_resumen['finca']} · "
-                            f"{cosecha_resumen['cantidad']:g} {cosecha_resumen['unidad']} · "
+         if agri_cosechas:
+            for cosecha_resumen in agri_cosechas:
+
+                    nombre_producto = cosecha_resumen["producto"]
+                    nombre_finca = cosecha_resumen["finca"]
+
+                    with st.expander(
+                        f"🌱 {nombre_producto} · 🏡 {nombre_finca}",
+                        expanded=False
+                    ):
+                        st.markdown(f"**Producto:** {nombre_producto}")
+
+                        st.markdown(
+                            f"**Finca o lote:** {nombre_finca}"
+                        )
+
+                        st.markdown(
+                            f"**Calidad o clasificación:** "
+                            f"{cosecha_resumen['calidad']}"
+                        )
+
+                        st.markdown(
+                            f"**Cantidad disponible:** "
+                            f"{cosecha_resumen['cantidad']:g} "
+                            f"{cosecha_resumen['unidad']}"
+                        )
+
+                        st.markdown(
+                            f"**Precio por unidad:** "
+                            f"{agri_pesos(cosecha_resumen['precio'])}"
+                        )
+
+                        st.markdown(
+                            f"**Fecha de cosecha:** "
+                            f"{cosecha_resumen['fecha'].strftime('%d/%m/%Y')}"
+                        )
+
+                        st.markdown(
+                            f"**Estado:** "
                             f"{agri_estado(cosecha_resumen)}"
                         )
+
+                        if cosecha_resumen.get("foto"):
+                            st.image(
+                                cosecha_resumen["foto"],
+                                caption="Fotografía de tu cosecha",
+                                use_container_width=True
+                            )
+                        else:
+                            st.caption("📷 Esta cosecha no tiene fotografía.")
+
             else:
-                st.info("Cuando registres tu primera cosecha, aparecerá aquí.")
+                st.info(
+                    "Todavía no tienes cosechas registradas. "
+                    "Cuando guardes tu primera cosecha aparecerá aquí."
+                )
 
     
     # SECCIÓN 3: PEDIDOS
@@ -635,11 +736,14 @@ def ejecutar_modo_agricultor():
         except ConnectionError:
             st.error("No se pudo conectar con TiDB.")
 
+    
     # SECCIÓN 4: PAGOS
     elif opcion_menu == "💰 Pagos":
         st.subheader("Mis pagos")
         st.info("Historial de pagos directos sin intermediarios.")
         st.write("Aquí podrás consultar los valores recibidos por tus ventas.")
+
+
 
     # SECCIÓN 5: PERFIL
     elif opcion_menu == "👤 Mi perfil":
@@ -660,6 +764,7 @@ def ejecutar_modo_agricultor():
 
         if agri_guardar_perfil:
             agri_errores_perfil = []
+
             if not agri_nombre_perfil.strip():
                 agri_errores_perfil.append("Escribe el nombre del productor.")
             if not agri_municipio_perfil.strip():
@@ -703,6 +808,7 @@ def ejecutar_modo_agricultor():
                         "Perfil y finca principal guardados en TiDB."
                     )
                     st.rerun()
+
 
     # SECCIÓN 6: PROYECTOS DE INVERSIÓN
     elif opcion_menu == "📈 Proyectos de inversión":
