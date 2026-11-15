@@ -438,20 +438,43 @@ def ejecutar_modo_comprador():
     if mensaje:
         st.success(mensaje)
 
-    try:
-        if vista == "🏠 Inicio":
-            _vista_inicio(comprador_id)
-        elif vista == "🏡 Fincas":
-            _vista_fincas(comprador_id)
-        else:
-            _vista_pedidos(comprador_id)
-    except ErrorMySQL as error:
-        st.error(
-            "No se pudo consultar la información. "
-            f"Código: {error.errno}."
-        )
-    except ConnectionError:
-        st.error("No se pudo conectar con TiDB.")
+    if vista == "🏠 Inicio":
+        _vista_inicio(comprador_id)
+    elif vista == "🏡 Fincas":
+        _vista_fincas(comprador_id)
+    else:
+        _vista_pedidos(comprador_id)
 
+
+# --- BLOQUE PARA PRUEBAS DIRECTAS ---
+if __name__ == "__main__":
+    if "usuario" not in st.session_state:
+        st.session_state.usuario = "Luis Comprador (Prueba)"
+    if "agri_datos" not in st.session_state:
+        st.session_state.agri_datos = {
+            "agricultor_juan": {
+                "cosechas": [
+                    {"id": "1", "producto": "Café Especial Caturra", "finca": "Finca Juan",
+                     "precio": 85000, "unidad": "kg", "cantidad": 50,
+                     "calidad": "Premium", "activa": True, "foto": None},
+                    {"id": "2", "producto": "Pollo", "finca": "Finca Juan",
+                     "precio": 12000, "unidad": "kg", "cantidad": 30,
+                     "calidad": "Fresco", "activa": True, "foto": None},
+                ]
+            },
+            "agricultor_andres": {
+                "cosechas": [
+                    {"id": "3", "producto": "Arroz", "finca": "Finca Andrés",
+                     "precio": 4500, "unidad": "kg", "cantidad": 200,
+                     "calidad": "Estándar", "activa": True, "foto": None},
+                    {"id": "4", "producto": "Maíz", "finca": "Finca Andrés",
+                     "precio": 3000, "unidad": "kg", "cantidad": 120,
+                     "calidad": "Estándar", "activa": True, "foto": None},
+                ]
+            },
+        }
+
+    ejecutar_modo_comprador() 
+    
 # Para probar solo esta parte:  py -m streamlit run modos/comprador.py
 # Para probar todo el proyecto: py -m streamlit run main.py
