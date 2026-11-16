@@ -1,5 +1,6 @@
 import streamlit as st
 from mysql.connector import Error as ErrorMySQL
+from html import escape
 
 from database.inversionista_db import (
     iniciar_inversionista,
