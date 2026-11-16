@@ -1,4 +1,5 @@
 import streamlit as st
+from html import escape
 from mysql.connector import Error as ErrorMySQL
 
 from database.inversionista_db import (
@@ -45,7 +46,7 @@ def inv_tab_perfil(usuario_id, datos):
 
     with col_foto:
         if perfil["foto"]:
-            st.image(perfil["foto"], use_container_width=True)
+            st.image(perfil["foto"], width="stretch")
         else:
             st.info("Aún no tienes foto de perfil.")
 
@@ -239,7 +240,7 @@ def inv_tab_inversiones(datos):
             "Estado": inversion["estado"],
         })
 
-    st.dataframe(filas, use_container_width=True, hide_index=True)
+    st.dataframe(filas, width="stretch", hide_index=True)
 
 
 def inv_tab_wallet(usuario_id, datos):
@@ -304,7 +305,7 @@ def inv_tab_wallet(usuario_id, datos):
     ]
 
     if filas:
-        st.dataframe(filas, use_container_width=True, hide_index=True)
+        st.dataframe(filas, width="stretch", hide_index=True)
     else:
         st.caption("Sin movimientos todavía.")
 
@@ -315,8 +316,7 @@ def ejecutar_modo_inversionista():
         st.error("Ingresa primero con un usuario.")
         return
 
-    st.title("📈 Panel de Inversión Agrícola - agriTechGO")
-
+    # Datos desde TiDB (igual que antes)
     try:
         usuario_id = iniciar_inversionista(usuario)
         datos = cargar_datos(usuario_id)
@@ -324,7 +324,112 @@ def ejecutar_modo_inversionista():
         mostrar_error(error)
         return
 
-    st.success(f"Perfil Inversionista: {datos['perfil']['nombre']}")
+    # ------------------------------------------------------------------
+    # SECCIONES DEL MENÚ: nombre -> (texto de ayuda, función que la dibuja)
+    # ------------------------------------------------------------------
+    inv_secciones = {
+        "👤 Mi perfil": (
+            "Cuéntale al campo quién eres y sube tu foto.",
+            lambda: inv_tab_perfil(usuario_id, datos),
+        ),
+        "🌱 Fincas": (
+            "Sigue fincas y revisa los proyectos que puedes financiar.",
+            lambda: inv_tab_fincas(usuario_id, datos),
+        ),
+        "📊 Mis inversiones": (
+            "Consulta tus aportes y su estado.",
+            lambda: inv_tab_inversiones(datos),
+        ),
+        "👛 Wallet": (
+            "Recarga, retira y revisa tus movimientos.",
+            lambda: inv_tab_wallet(usuario_id, datos),
+        ),
+    }
+
+    # MENÚ LATERAL (vertical, fijo y legible)
+    st.markdown(
+        """
+        <style>
+            /* Barra lateral fija: ancho constante y siempre visible */
+            section[data-testid="stSidebar"] {
+                min-width: 280px !important;
+                max-width: 280px !important;
+                transform: none !important;
+                margin-left: 0 !important;
+                visibility: visible !important;
+                background: #EEF2EF !important;
+            }
+            /* Se oculta el botón que la colapsa */
+            [data-testid="stSidebarCollapseButton"],
+            [data-testid="stSidebarCollapsedControl"] {
+                display: none !important;
+            }
+            /* Título y etiqueta en color oscuro */
+            section[data-testid="stSidebar"] h4,
+            section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
+                color: #1F2937 !important;
+                font-weight: 700 !important;
+            }
+            /* Opciones del menú: una debajo de otra, grandes y legibles */
+            section[data-testid="stSidebar"] div[role="radiogroup"] {
+                gap: 6px;
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] label {
+                padding: 10px 12px;
+                border-radius: 10px;
+            }
+            section[data-testid="stSidebar"] div[role="radiogroup"] label p {
+                color: #1F2937 !important;
+                font-size: 17px !important;
+                font-weight: 600 !important;
+            }
+            /* La opción elegida se resalta en verde claro */
+            section[data-testid="stSidebar"] div[role="radiogroup"] label:has(input:checked) {
+                background: #D5E8B8;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    with st.sidebar:
+        st.markdown("#### 📈 Menú Inversionista")
+        inv_seleccion = st.radio(
+            "Navegación:", list(inv_secciones.keys()), key=f"inv_menu_{usuario_id}"
+        )
+        st.markdown("---")
+        st.info(inv_secciones[inv_seleccion][0])
+
+    # ENCABEZADO
+    inv_nombre = datos["perfil"]["nombre"] or usuario
+    st.markdown(
+        f"""
+        <div style="
+            background:#174B35;
+            padding:28px;
+            border-radius:18px;
+            margin-bottom:20px;
+        ">
+            <div style="color:#D5E8B8;font-size:15px;">
+                AGRITECHGO · INVERSIONISTA
+            </div>
+            <div style="
+                color:#FFFFFF;
+                font-size:34px;
+                font-weight:750;
+                margin:8px 0;
+            ">
+                Mi portafolio 📈
+            </div>
+            <div style="color:#FFFFFF;font-size:17px;">
+                Bienvenido, {escape(str(inv_nombre))}.
+                Invierte en el campo y haz seguimiento a tus aportes desde un solo lugar.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
     st.caption("Información guardada en TiDB Cloud.")
 
     aviso = st.session_state.pop(f"inv_aviso_{usuario_id}", "")
@@ -334,25 +439,22 @@ def ejecutar_modo_inversionista():
     if st.button("🔄 Actualizar información"):
         st.rerun()
 
-    tab_perfil, tab_fincas, tab_inv, tab_wallet = st.tabs(
-        ["👤 Perfil", "🌱 Fincas", "📊 Mis inversiones", "👛 Wallet"]
-    )
+    # MÉTRICAS (con los datos que ya trae TiDB)
+    inv_activas = [
+        i for i in datos["inversiones"] if i["estado"] != "cancelada"
+    ]
+    inv_total = sum(i["monto"] for i in inv_activas)
+    inv_fincas = {i["finca"] for i in inv_activas}
 
-    with tab_perfil:
-        inv_tab_perfil(usuario_id, datos)
+    inv_col1, inv_col2, inv_col3 = st.columns(3)
+    inv_col1.metric("Total aportado", cop(inv_total))
+    inv_col2.metric("Fincas financiadas", len(inv_fincas))
+    inv_col3.metric("Saldo en wallet", cop(datos["saldo"]))
 
-    with tab_fincas:
-        inv_tab_fincas(usuario_id, datos)
+    st.markdown("---")
 
-    with tab_inv:
-        inv_tab_inversiones(datos)
-
-    with tab_wallet:
-
-        inv_tab_wallet(usuario_id, datos)
+    # SECCIÓN ELEGIDA EN EL MENÚ
+    inv_secciones[inv_seleccion][1]()
 
 
-
-print("por el emperador!!!")
-print("Muerte a los traidores!!!")
-
+print("POR EL EMPERADOR!!!")
