@@ -354,5 +354,5 @@ def ejecutar_modo_inversionista():
 
 
 print("por el emperador!!!")
-print("Muerte a los herejes!!!")
+print("Muerte a los herejes!!")
 
