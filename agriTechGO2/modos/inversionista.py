@@ -1,6 +1,6 @@
 import streamlit as st
 from mysql.connector import Error as ErrorMySQL
-from html import escape
+
 
 from database.inversionista_db import (
     iniciar_inversionista,
@@ -355,5 +355,5 @@ def ejecutar_modo_inversionista():
 
 
 print("por el emperador!!!")
-print("Muerte a los herejes!!")
+print("Muerte a los herejes!!!")
 
