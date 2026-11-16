@@ -81,7 +81,7 @@ def ejecutar_modo_agricultor():
 
     agri_aviso_key = f"agri_aviso_{agri_usuario_id}"
 
-    # ENCA
+    #
     st.markdown(
         f"""
         <div style="
