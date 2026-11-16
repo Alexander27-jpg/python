@@ -190,7 +190,7 @@ def mostrar_login(ruta_logo):
             # Limpiamos espacios y convertimos a minúsculas obligatoriamente
             usuario_ingresado = email.strip().lower()
             pass_ingresada = password.strip()
-            
+
             if usuario_ingresado == "" or not pass_ingresada:
                 st.error("Por favor completa todos los campos.")
             elif usuario_ingresado == "admin" and pass_ingresada == "admin1234":
@@ -199,7 +199,41 @@ def mostrar_login(ruta_logo):
                 st.session_state["pantalla"] = "dashboard"
                 st.rerun()
             else:
-                st.error(f"Acceso denegado.")
+                conexion = obtener_conexion()
+                if conexion:
+                    try:
+                        cursor = conexion.cursor(dictionary=True)
+                        cursor.execute(
+                            "SELECT id, nombre, correo, rol, password_hash, activo FROM usuarios WHERE LOWER(correo) = %s",
+                            (usuario_ingresado,),
+                        )
+                        user_db = cursor.fetchone()
+
+                        if not user_db:
+                            st.error("No existe una cuenta registrada con este correo.")
+                        elif user_db["activo"] != 1:
+                            st.error("Esta cuenta se encuentra inactiva.")
+                        elif user_db["password_hash"] != pass_ingresada:
+                            st.error("Contraseña incorrecta.")
+                        elif rol_elegido not in user_db["rol"]:
+                            st.warning(
+                                f"Tu cuenta no tiene habilitado el perfil '{rol_elegido}'. "
+                                f"Tus perfiles registrados son: {user_db['rol']}"
+                            )
+                        else:
+                            st.session_state["usuario_id"] = user_db["id"]
+                            st.session_state["usuario"] = user_db["nombre"]
+                            st.session_state["correo"] = user_db["correo"]
+                            st.session_state["rol"] = rol_elegido
+                            st.session_state["pantalla"] = "dashboard"
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al consultar la base de datos: {e}")
+                    finally:
+                        cursor.close()
+                        conexion.close()
+                else:
+                    st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
