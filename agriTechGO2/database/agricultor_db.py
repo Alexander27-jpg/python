@@ -442,3 +442,161 @@ def listar_proyectos_productor(agricultor_id):
             (agricultor_id,),
         )
         return cursor.fetchall()
+
+    
+def listar_pedidos_agricultor(agricultor_id):
+    """Consulta los pedidos recibidos por las cosechas del agricultor."""
+    with abrir_bd() as (_, cursor):
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.comprador_id,
+                u.nombre AS comprador,
+                p.cosecha_id,
+                c.producto,
+                c.finca_id,
+                f.nombre AS finca,
+                p.cantidad,
+                p.unidad,
+                p.precio_unitario,
+                ROUND(p.cantidad * p.precio_unitario, 2) AS total,
+                p.estado,
+                p.creado_en
+            FROM pedidos p
+            JOIN usuarios u ON u.id = p.comprador_id
+            JOIN cosechas c ON c.id = p.cosecha_id
+            JOIN fincas f ON f.id = c.finca_id
+            WHERE f.agricultor_id = %s
+            ORDER BY
+                CASE WHEN p.estado = 'pendiente' THEN 0 ELSE 1 END,
+                p.creado_en DESC,
+                p.id DESC
+            """,
+            (agricultor_id,),
+        )
+        return cursor.fetchall()
+
+
+def aceptar_pedido(agricultor_id, pedido_id):
+    """Acepta un pedido y descuenta el inventario en una transacción."""
+    with abrir_bd() as (_, cursor):
+        cursor.execute("BEGIN PESSIMISTIC")
+
+        cursor.execute(
+            """
+            SELECT
+                p.id,
+                p.estado,
+                p.cantidad AS cantidad_pedida,
+                p.cosecha_id,
+                c.cantidad AS cantidad_disponible,
+                c.activa AS cosecha_activa,
+                f.activa AS finca_activa,
+                f.agricultor_id
+            FROM pedidos p
+            JOIN cosechas c ON c.id = p.cosecha_id
+            JOIN fincas f ON f.id = c.finca_id
+            WHERE p.id = %s
+            FOR UPDATE
+            """,
+            (pedido_id,),
+        )
+
+        pedido = cursor.fetchone()
+
+        if not pedido or pedido["agricultor_id"] != agricultor_id:
+            raise ValueError(
+                "El pedido no existe o no pertenece a tus cosechas."
+            )
+
+        if pedido["estado"] != "pendiente":
+            raise ValueError(
+                "Este pedido ya fue procesado anteriormente."
+            )
+
+        if not pedido["cosecha_activa"] or not pedido["finca_activa"]:
+            raise ValueError(
+                "La cosecha o la finca ya no están disponibles."
+            )
+
+        if pedido["cantidad_disponible"] < pedido["cantidad_pedida"]:
+            raise ValueError(
+                "No hay existencias suficientes para aceptar el pedido."
+            )
+
+        cursor.execute(
+            """
+            UPDATE cosechas
+            SET cantidad = cantidad - %s
+            WHERE id = %s AND cantidad >= %s
+            """,
+            (
+                pedido["cantidad_pedida"],
+                pedido["cosecha_id"],
+                pedido["cantidad_pedida"],
+            ),
+        )
+
+        if cursor.rowcount != 1:
+            raise ValueError(
+                "No se pudo descontar el inventario. Actualiza los datos."
+            )
+
+        cursor.execute(
+            """
+            UPDATE pedidos
+            SET estado = 'aceptado'
+            WHERE id = %s AND estado = 'pendiente'
+            """,
+            (pedido_id,),
+        )
+
+        if cursor.rowcount != 1:
+            raise ValueError(
+                "El pedido cambió de estado. No se completó la operación."
+            )
+
+
+def rechazar_pedido(agricultor_id, pedido_id):
+    """Rechaza un pedido pendiente sin descontar existencias."""
+    with abrir_bd() as (_, cursor):
+        cursor.execute("BEGIN PESSIMISTIC")
+
+        cursor.execute(
+            """
+            SELECT p.id, p.estado, f.agricultor_id
+            FROM pedidos p
+            JOIN cosechas c ON c.id = p.cosecha_id
+            JOIN fincas f ON f.id = c.finca_id
+            WHERE p.id = %s
+            FOR UPDATE
+            """,
+            (pedido_id,),
+        )
+
+        pedido = cursor.fetchone()
+
+        if not pedido or pedido["agricultor_id"] != agricultor_id:
+            raise ValueError(
+                "El pedido no existe o no pertenece a tus cosechas."
+            )
+
+        if pedido["estado"] != "pendiente":
+            raise ValueError(
+                "Este pedido ya fue procesado anteriormente."
+            )
+
+        cursor.execute(
+            """
+            UPDATE pedidos
+            SET estado = 'rechazado'
+            WHERE id = %s AND estado = 'pendiente'
+            """,
+            (pedido_id,),
+        )
+
+        if cursor.rowcount != 1:
+            raise ValueError(
+                "No se pudo actualizar el estado del pedido."
+            )
