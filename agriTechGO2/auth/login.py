@@ -5,7 +5,7 @@ import time
 import streamlit as st
 import sys
 
-# Importamos tu función de conexión a la raíz
+
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 )
