@@ -457,4 +457,4 @@ def ejecutar_modo_inversionista():
     inv_secciones[inv_seleccion][1]()
 
 
-print("POR EL EMPERADOR!!!!")
+print("POR EL EMPERADOR!!!")
