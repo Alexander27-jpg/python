@@ -94,6 +94,27 @@ def crear_pedido(
                 "La cantidad solicitada supera las existencias actuales."
             )
 
+        # NUEVO: evita solicitudes duplicadas. Suma lo que este comprador
+        # ya tiene pendiente de esta cosecha y no deja superar el stock.
+        cursor.execute(
+            """
+            SELECT COALESCE(SUM(cantidad), 0) AS pendiente
+            FROM pedidos
+            WHERE comprador_id = %s
+              AND cosecha_id = %s
+              AND estado = 'pendiente'
+            """,
+            (comprador_id, cosecha_id),
+        )
+        ya_pendiente = cursor.fetchone()["pendiente"]
+
+        if ya_pendiente + cantidad > cosecha["cantidad"]:
+            raise ValueError(
+                "Ya tienes solicitudes pendientes de este producto y, "
+                "sumadas a esta, superan las existencias actuales. "
+                "Cancela una solicitud pendiente o reduce la cantidad."
+            )
+
         if (
             cosecha["unidad"] == "unidad"
             and cantidad != cantidad.to_integral_value()
@@ -157,6 +178,52 @@ def listar_pedidos(comprador_id):
             (comprador_id,),
         )
         return cursor.fetchall()
+
+
+def cancelar_pedido(comprador_id, pedido_id):
+    """
+    NUEVO: cancela un pedido pendiente del comprador.
+    Como el inventario solo se descuenta cuando el agricultor acepta,
+    cancelar un pedido pendiente no requiere devolver existencias.
+    """
+    with abrir_bd() as (_, cursor):
+        cursor.execute("BEGIN PESSIMISTIC")
+
+        cursor.execute(
+            """
+            SELECT id, estado
+            FROM pedidos
+            WHERE id = %s AND comprador_id = %s
+            FOR UPDATE
+            """,
+            (pedido_id, comprador_id),
+        )
+        pedido = cursor.fetchone()
+
+        if pedido is None:
+            raise ValueError(
+                "El pedido no existe o no pertenece a tu cuenta."
+            )
+
+        if pedido["estado"] != "pendiente":
+            raise ValueError(
+                "Solo puedes cancelar pedidos que siguen pendientes. "
+                "Actualiza la vista para ver su estado actual."
+            )
+
+        cursor.execute(
+            """
+            UPDATE pedidos
+            SET estado = 'cancelado'
+            WHERE id = %s AND comprador_id = %s AND estado = 'pendiente'
+            """,
+            (pedido_id, comprador_id),
+        )
+
+        if cursor.rowcount != 1:
+            raise ValueError(
+                "El pedido cambió de estado. No se pudo cancelar."
+            )
 
     
 def registrar_pago(comprador_id, pedido_id):
