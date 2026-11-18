@@ -10,9 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from auth.email_sender import enviar_correo_bienvenida
 from conexion import obtener_conexion
 
-# ==============================================================================
-# RUTA DEL FONDO DEL PORTAL PRINCIPAL (Cámbiala aquí cuando tengas la nueva foto)
-# ==============================================================================
+
 FONDO_PORTAL = "ruta_logo.jpeg"
 
 
