@@ -145,30 +145,135 @@ def ejecutar_modo_agricultor():
     st.markdown("---")
 
     # MENÚ LATERAL DEL AGRICULTOR
+    import base64
     from pathlib import Path
 
     agri_menu_key = f"agri_menu_{agri_usuario_id}"
 
-    # Se ejecuta antes de volver a dibujar el menú.
     def agri_volver_al_inicio():
         st.session_state[agri_menu_key] = "🌿 Mis cosechas"
 
     agri_logo_path = Path(__file__).resolve().parent.parent / "logo.png"
 
-    with st.sidebar:
-        agri_col_logo, agri_col_nombre = st.columns(
-            [1, 3],
-            gap="small",
-            vertical_alignment="center",
-        )
-        with agri_col_logo:
-            if agri_logo_path.is_file():
-                st.image(str(agri_logo_path), width=60)
+    agri_boton_inicio_key = f"agri_boton_inicio_{agri_usuario_id}"
 
-        with agri_col_nombre:
+    agri_logo_fondo = ""
+
+    if agri_logo_path.is_file():
+        agri_logo_base64 = base64.b64encode(agri_logo_path.read_bytes()).decode("utf-8")
+
+        agri_logo_fondo = f'url("data:image/png;base64,{agri_logo_base64}")'
+
+    with st.sidebar:
+
+        # ESTILO DEL LOGO Y DEL MENÚ
+        st.markdown(
+            f"""
+            <style>
+
+            /* LOGO CLICABLE */
+            .st-key-{agri_boton_inicio_key} button {{
+                background-image: {agri_logo_fondo} !important;
+                background-repeat: no-repeat !important;
+                background-position: center !important;
+                background-size: contain !important;
+                background-color: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                height: 110px !important;
+                min-height: 110px !important;
+                color: transparent !important;
+                font-size: 0 !important;
+                padding: 0 !important;
+            }}
+
+            .st-key-{agri_boton_inicio_key} button:hover {{
+                background-color: rgba(255,255,255,0.18) !important;
+                border-radius: 12px !important;
+            }}
+
+            
+            /* TÍTULO DE NAVEGACIÓN */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"] > label {{
+                font-size: 1.08rem !important;
+                font-weight: 750 !important;
+            }}
+
+            /* QUITAR CÍRCULOS DE SELECCIÓN */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"] > div:first-child {{
+                display: none !important;
+            }}
+
+            /* ESTILO DE CADA OPCIÓN */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"] {{
+                display: flex !important;
+                align-items: center !important;
+                width: 100% !important;
+                box-sizing: border-box !important;
+                padding: 0.65rem 0.8rem !important;
+                border-radius: 10px !important;
+                border-left: 4px solid transparent !important;
+                background: transparent !important;
+                cursor: pointer !important;
+                transition: background 0.2s ease !important;
+            }}
+
+            /* TAMAÑO Y COLOR DEL TEXTO */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"] p {{
+                font-size: 1.08rem !important;
+                font-weight: 550 !important;
+                color: #203D2B !important;
+                margin: 0 !important;
+            }}
+
+            /* EFECTO AL PASAR EL CURSOR */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"]:hover {{
+                background: #D7E9D0 !important;
+            }}
+
+            /* OPCIÓN SELECCIONADA */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"]:has(input:checked),
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            label[data-baseweb="radio"]:has([aria-checked="true"]) {{
+                background: #EAF4E8 !important;
+                border-left-color: #2F6B4F !important;
+            }}
+
+            /* SEPARACIÓN ENTRE OPCIONES */
+            section[data-testid="stSidebar"]
+            div[data-testid="stRadio"]
+            [role="radiogroup"] {{
+                gap: 0.55rem !important;
+            }}
+
+
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        # LOGO COMO BOTÓN DE INICIO
+        agri_col_izq, agri_col_centro, agri_col_der = st.columns(
+            [1, 2, 1],
+            gap="small",
+        )
+
+        with agri_col_centro:
             st.button(
                 "AgritechGO",
-                key=f"agri_boton_inicio_{agri_usuario_id}",
+                key=agri_boton_inicio_key,
                 help="Volver a Mis cosechas",
                 on_click=agri_volver_al_inicio,
                 use_container_width=True,
@@ -191,6 +296,25 @@ def ejecutar_modo_agricultor():
     st.markdown(
         """
     <style>
+        /* FONDO GENERAL DE AGRITECHGO */
+        .stApp,
+        [data-testid="stAppViewContainer"],
+        [data-testid="stMain"] {
+            background-color: #EAF4E8 !important;
+        }
+
+        /* FONDO DEL MENÚ LATERAL */
+        section[data-testid="stSidebar"],
+        section[data-testid="stSidebar"] > div,
+        [data-testid="stSidebarContent"] {
+            background-color: #C5DFBA !important;
+        }
+
+        /* TEXTOS DEL MENÚ LATERAL */
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+            color: #203D2B !important;
+        }
 
         /* =========================================================
            IDENTIDAD GENERAL
@@ -1214,19 +1338,49 @@ def ejecutar_modo_agricultor():
             if not agri_proyectos:
                 st.info("Todavía no has publicado proyectos.")
 
-            for proyecto in agri_proyectos:
-                with st.container(border=True):
+            # ESTILO DE LAS TARJETAS DE PROYECTOS PUBLICADOS
+            st.markdown(
+                """
+                <style>
+                div[class*="st-key-agri-proyecto-publicado-"] {
+                    background-color: #FFFFFF !important;
+                    border: 1px solid #D7E5D8;
+                    border-left: 6px solid #2E7251;
+                    border-radius: 16px;
+                    padding: 18px 22px;
+                    margin-bottom: 18px;
+                    box-shadow: 0 3px 12px rgba(30, 70, 45, 0.08);
+                }
+
+                div[class*="st-key-agri-proyecto-publicado-"]
+                div[data-testid="stMetric"] {
+                    background-color: #F3F8F2;
+                    border: 1px solid #DCE9DC;
+                    border-radius: 12px;
+                    padding: 12px 16px;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            for indice, proyecto in enumerate(agri_proyectos):
+                with st.container(key=f"agri-proyecto-publicado-{indice}"):
                     st.subheader(proyecto["titulo"])
+
                     st.caption(
                         f"Finca: {proyecto['finca']} · " f"Estado: {proyecto['estado']}"
                     )
+
                     st.write(proyecto["descripcion"] or "")
 
                     col_meta, col_aportes = st.columns(2)
+
                     col_meta.metric(
                         "Meta",
                         agri_pesos(proyecto["meta"]),
                     )
+
                     col_aportes.metric(
                         "Aportes simulados",
                         agri_pesos(proyecto["recaudado"]),
@@ -1242,6 +1396,3 @@ def ejecutar_modo_agricultor():
                         max(0.0, min(progreso, 1.0)),
                         text=f"Financiación: {progreso * 100:.1f}%",
                     )
-
-
-# por fin
