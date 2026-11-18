@@ -9,8 +9,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Importar los módulos de autenticación y modos
+# Importar los módulos de autenticación y modos (incluyendo mostrar_landing)
 from auth.login import (
+    mostrar_landing,
     mostrar_login,
     mostrar_recuperar_password,
     mostrar_registro,
@@ -43,6 +44,9 @@ def main():
     if pantalla_actual == "splash":
         mostrar_splash()
 
+    elif pantalla_actual == "landing":
+        mostrar_landing(RUTA_LOGO)
+
     elif pantalla_actual == "login":
         mostrar_login(RUTA_LOGO)
 
@@ -60,7 +64,7 @@ def main():
         col_espacio, col_btn = st.columns([8, 2])
         with col_btn:
             if st.button("🚪 Cerrar Sesión", use_container_width=True):
-                st.session_state.pantalla = "login"
+                st.session_state.pantalla = "landing"  # Vuelve al portal principal al cerrar sesión
                 st.session_state.usuario = ""
                 st.session_state.rol = ""
                 st.rerun()
