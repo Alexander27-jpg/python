@@ -1242,3 +1242,5 @@ def ejecutar_modo_agricultor():
                         max(0.0, min(progreso, 1.0)),
                         text=f"Financiación: {progreso * 100:.1f}%",
                     )
+
+                    # Prueba#
