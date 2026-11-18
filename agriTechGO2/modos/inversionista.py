@@ -453,8 +453,8 @@ def ejecutar_modo_inversionista():
 
     st.markdown("---")
 
-    # SECCIÓN ELEGIDA EN EL MENÚ
+    # SECCIÓN ELEGIDA EN EL MENÚ    
     inv_secciones[inv_seleccion][1]()
 
 
-print("POR EL EMPERADOR!!!")
+print("POR EL EMPERADOR!!")
