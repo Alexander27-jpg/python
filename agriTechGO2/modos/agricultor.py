@@ -16,14 +16,15 @@ from database.agricultor_db import (
     listar_pedidos_agricultor,
     aceptar_pedido,
     rechazar_pedido,
+    listar_pagos_agricultor
 )
 import unicodedata
 
 def comun_estado_cosecha(cosecha):
-    """Calcula el estado usando cantidad y disponibilidad."""
+    """Calcula el estado según la cantidad disponible."""
     if cosecha["cantidad"] <= 0:
         return "Agotada"
-    return "Disponible" if cosecha["activa"] else "Pausada"
+    return "Disponible"
 
 def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
     """Consulta cosechas persistentes en TiDB."""
@@ -99,7 +100,7 @@ def ejecutar_modo_agricultor():
                 font-weight:750;
                 margin:8px 0;
             ">
-                Mi campo 🌱
+                AgritechGO
             </div>
             <div style="color:#FFFFFF;font-size:17px;">
                 Bienvenido, {escape(agri_usuario)}.
@@ -144,7 +145,34 @@ def ejecutar_modo_agricultor():
 
     
     # MENÚ LATERAL DEL AGRICULTOR
-    st.sidebar.markdown("### 🌱 Menú Mi Campo")
+    from pathlib import Path
+
+    agri_menu_key = f"agri_menu_{agri_usuario_id}"
+
+    # Se ejecuta antes de volver a dibujar el menú.
+    def agri_volver_al_inicio():
+        st.session_state[agri_menu_key] = "🌿 Mis cosechas"
+
+    agri_logo_path = Path(__file__).resolve().parent.parent / "logo.png"
+
+    with st.sidebar:
+        agri_col_logo, agri_col_nombre = st.columns(
+            [1, 3],
+            gap="small",
+            vertical_alignment="center",
+        )
+        with agri_col_logo:
+            if agri_logo_path.is_file():
+                st.image(str(agri_logo_path), width=60)
+
+        with agri_col_nombre:
+            st.button(
+                "AgritechGO",
+                key=f"agri_boton_inicio_{agri_usuario_id}",
+                help="Volver a Mis cosechas",
+                on_click=agri_volver_al_inicio,
+                use_container_width=True,
+            )
 
     opcion_menu = st.sidebar.radio(
         "Navegación:",
@@ -156,28 +184,154 @@ def ejecutar_modo_agricultor():
             "👤 Mi perfil",
             "📈 Proyectos de inversión",
         ],
-        key=f"agri_menu_{agri_usuario_id}",
+        key=agri_menu_key,
     )
 
     # PERSONALIZACIÓN VISUAL DEL MENÚ
     st.markdown(
         """
         <style>
+        /* FONDO VERDE CLARO */
+        .stApp {
+            background-color: #EAF4E8;
+            color: #203D2B;
+        }
+
+        [data-testid="stHeader"] {
+            background-color: #EAF4E8;
+            color: #203D2B;
+        }
+
+        /* TEXTO GENERAL Y MÉTRICAS LEGIBLES */
+        [data-testid="stMain"] [data-testid="stMarkdownContainer"],
+        [data-testid="stMain"] [data-testid="stWidgetLabel"],
+        [data-testid="stMain"] [data-testid="stMetricLabel"],
+        [data-testid="stMain"] [data-testid="stMetricValue"] {
+            color: #203D2B !important;
+        }
+
+        [data-testid="stMain"] [data-testid="stCaptionContainer"] {
+            color: #526B58 !important;
+        }
+
+        /* MENÚ LATERAL VERDE HOJA */
+        [data-testid="stSidebar"] {
+            background-color: #C5DFBA;
+            border-right: 1px solid #A4C597;
+            color: #203D2B;
+        }
+
+        /* OPCIONES GRANDES Y ESPACIADAS */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label p {
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            line-height: 1.5 !important;
+            color: #203D2B !important;
+        }
+
         [data-testid="stSidebar"] [data-testid="stRadio"] label {
-            font-size: 17px !important;
-            padding: 9px 8px !important;
-            min-height: 38px;
+            padding: 10px 6px !important;
+            min-height: 48px !important;
             cursor: pointer;
         }
 
-        [data-testid="stSidebar"] [data-testid="stRadio"] p {
-            font-size: 17px !important;
+        [data-testid="stSidebar"] [role="radiogroup"] {
+            gap: 6px !important;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stRadio"] > label p {
+            font-size: 19px !important;
+            font-weight: 700 !important;
+        }
+
+        /* AYUDA EN TONOS VERDES */
+        [data-testid="stSidebar"] [data-testid="stAlert"] {
+            background-color: #E4F0DE !important;
+            border: 1px solid #A4C597;
+            border-radius: 12px;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stAlert"] p {
+            color: #2E5137 !important;
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+        }
+
+        /* BOTÓN AGRITECHGO */
+        [class*="st-key-agri_boton_inicio_"] button {
+            background-color: #174B35 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #174B35 !important;
+            border-radius: 12px !important;
+            min-height: 48px;
+        }
+
+        [class*="st-key-agri_boton_inicio_"] button p {
+            color: #FFFFFF !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+        }
+
+        [class*="st-key-agri_boton_inicio_"] button:hover {
+            background-color: #236747 !important;
+        }
+
+        /* BOTÓN CERRAR SESIÓN */
+        .st-key-cerrar_sesion button {
+            background-color: #A33636 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #A33636 !important;
+            border-radius: 12px !important;
+            min-height: 48px;
+        }
+
+        .st-key-cerrar_sesion button p {
+            color: #FFFFFF !important;
             font-weight: 600 !important;
         }
 
-        [data-testid="stSidebar"] [data-testid="stRadio"] {
-            gap: 10px !important;
+        .st-key-cerrar_sesion button:hover {
+            background-color: #812929 !important;
         }
+
+    /* MEJORAR LEGIBILIDAD DEL CONTENIDO */
+    [data-testid="stMain"] p {
+        font-size: 17px !important;
+        line-height: 1.5 !important;
+    }
+
+    /* TÍTULOS */
+    [data-testid="stMain"] h1 {
+        font-size: 34px !important;
+    }
+
+    [data-testid="stMain"] h2 {
+        font-size: 27px !important;
+    }
+
+    [data-testid="stMain"] h3 {
+        font-size: 22px !important;
+    }
+
+    /* ETIQUETAS DE FORMULARIOS */
+    [data-testid="stMain"] [data-testid="stWidgetLabel"] p {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+    }
+
+    /* TEXTOS SECUNDARIOS */
+    [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
+        font-size: 15px !important;
+    }
+
+    /* FOTOGRAFÍAS UNIFORMES */
+    [data-testid="stMain"] [data-testid="stImage"] img {
+        width: 100% !important;
+        height: 260px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        border-radius: 12px !important;
+    }
         </style>
         """,
         unsafe_allow_html=True
@@ -220,7 +374,7 @@ def ejecutar_modo_agricultor():
             with col_filtro:
                 agri_filtro = st.selectbox(
                     "Filtrar cosechas",
-                    ["Todas", "Disponible", "Pausada", "Agotada"],
+                    ["Todas", "Disponible", "Agotada"],
                     key=f"agri_filtro_{agri_usuario}"
                 )
 
@@ -273,14 +427,20 @@ def ejecutar_modo_agricultor():
             ]
 
             # Mostrar tarjetas en dos columnas
-            agri_columnas = st.columns(2, gap="large")
-
+            agri_columnas = st.columns(
+                2,
+                gap="large",
+                border=True,
+            )
             for indice, agri_c in enumerate(agri_pagina_cosechas):
                 agri_id = agri_c["id"]
                 agri_estado_actual = agri_estado(agri_c)
 
                 with agri_columnas[indice]:
-                    with st.container(border=True):
+                    with st.container(
+                        border=False,
+                        key=f"agri_tarjeta_{agri_id}",
+                    ):
 
                         # Fotografía
                         if agri_c.get("foto"):
@@ -294,7 +454,7 @@ def ejecutar_modo_agricultor():
                                 <div style="
                                     background:#EAF3E8;
                                     border-radius:12px;
-                                    height:150px;
+                                    height:230px;
                                     display:flex;
                                     align-items:center;
                                     justify-content:center;
@@ -315,8 +475,7 @@ def ejecutar_modo_agricultor():
 
                         if agri_estado_actual == "Disponible":
                             st.success("● Disponible")
-                        elif agri_estado_actual == "Pausada":
-                            st.warning("● Publicación pausada")
+
                         else:
                             st.error("● Agotada")
 
@@ -365,9 +524,12 @@ def ejecutar_modo_agricultor():
                                     step=100
                                 )
 
-                                agri_activa = st.checkbox(
-                                    "Mantener disponible",
-                                    value=agri_c["activa"]
+                                agri_activa = agri_nueva_cantidad > 0
+
+                                st.caption(
+                                    "El estado se actualiza según la cantidad. "
+                                    "Para marcar la cosecha como agotada, "
+                                    "coloca 0 y guarda los cambios."
                                 )
 
                                 agri_guardar = st.form_submit_button(
@@ -737,11 +899,97 @@ def ejecutar_modo_agricultor():
             st.error("No se pudo conectar con TiDB.")
 
     
+
+
     # SECCIÓN 4: PAGOS
     elif opcion_menu == "💰 Pagos":
-        st.subheader("Mis pagos")
-        st.info("Historial de pagos directos sin intermediarios.")
-        st.write("Aquí podrás consultar los valores recibidos por tus ventas.")
+
+        st.subheader("💰 Mis pagos")
+        st.write(
+            "Consulta los pagos registrados por las ventas "
+            "de tus cosechas."
+        )
+
+        pagos = listar_pagos_agricultor(agri_usuario_id)
+
+        if not pagos:
+            st.info(
+                "Todavía no tienes pagos registrados. "
+                "Cuando un comprador pague un pedido aceptado, "
+                "aparecerá aquí."
+            )
+
+        else:
+            total_recibido = sum(
+                pago["monto"] for pago in pagos
+            )
+
+            col1, col2 = st.columns(2)
+
+            col1.metric(
+                "Pagos registrados",
+                len(pagos)
+            )
+
+            col2.metric(
+                "Total de pagos",
+                f"${total_recibido:,.0f} COP".replace(",", ".")
+            )
+
+            st.markdown("---")
+
+            for pago in pagos:
+
+                with st.container(border=True):
+
+                    col1, col2 = st.columns([3, 1])
+
+                    with col1:
+                        st.markdown(
+                            f"### 💳 Pago #{pago['pago_id']}"
+                        )
+
+                        st.write(
+                            f"**Comprador:** {pago['comprador']}"
+                        )
+
+                        st.write(
+                            f"**Producto:** {pago['producto']}"
+                        )
+
+                        st.write(
+                            f"**Finca:** {pago['finca']}"
+                        )
+
+                        st.write(
+                            f"**Cantidad:** "
+                            f"{pago['cantidad']} {pago['unidad']}"
+                        )
+
+                        st.write(
+                            f"**Referencia:** {pago['referencia']}"
+                        )
+
+                        st.caption(
+                            f"Fecha: {pago['creado_en']}"
+                        )
+
+                    with col2:
+                        st.metric(
+                            "Valor pagado",
+                            f"${pago['monto']:,.0f}".replace(",", ".")
+                        )
+
+                        if pago["estado"] == "confirmado":
+                            st.success("Confirmado")
+                        else:
+                            st.warning(
+                                pago["estado"].capitalize()
+                            )
+
+                        if pago["es_simulado"]:
+                            st.caption("Pago de demostración")
+
 
 
 
