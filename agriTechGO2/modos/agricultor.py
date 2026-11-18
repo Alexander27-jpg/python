@@ -187,7 +187,7 @@ def ejecutar_modo_agricultor():
         key=agri_menu_key,
     )
 
-    # PERSONALIZACIÓN VISUAL DEL MENÚ Nuevo
+    # PERSONALIZACIÓN VISUAL DEL MENÚ 
     st.markdown(
         """
         <style>
