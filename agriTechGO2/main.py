@@ -60,21 +60,11 @@ def main():
         mostrar_verificar_otp(RUTA_LOGO)
 
     elif pantalla_actual == "dashboard":
-        # Botón superior para cerrar sesión
+        # Botón superior para cerrar sesión (integrado sin conflictos)
         col_espacio, col_btn = st.columns([8, 2])
-
         with col_btn:
-<<<<<<< HEAD
-            if st.button("🚪 Cerrar Sesión", use_container_width=True):
+            if st.button("🚪 Cerrar Sesión", key="cerrar_sesion_dash", use_container_width=True):
                 st.session_state.pantalla = "landing"  # Vuelve al portal principal al cerrar sesión
-=======
-            if st.button(
-                "Cerrar Sesión",
-                key="cerrar_sesion",
-                use_container_width=True,
-            ):
-                st.session_state.pantalla = "login"
->>>>>>> edc7b9c1cd834cfaac2ff95577372da825599129
                 st.session_state.usuario = ""
                 st.session_state.rol = ""
                 st.rerun()
