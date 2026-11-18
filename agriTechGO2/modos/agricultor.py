@@ -16,15 +16,17 @@ from database.agricultor_db import (
     listar_pedidos_agricultor,
     aceptar_pedido,
     rechazar_pedido,
-    listar_pagos_agricultor
+    listar_pagos_agricultor,
 )
 import unicodedata
+
 
 def comun_estado_cosecha(cosecha):
     """Calcula el estado según la cantidad disponible."""
     if cosecha["cantidad"] <= 0:
         return "Agotada"
     return "Disponible"
+
 
 def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
     """Consulta cosechas persistentes en TiDB."""
@@ -37,6 +39,7 @@ def comun_listar_cosechas(agricultor_id=None, solo_disponibles=False):
         registro["estado"] = comun_estado_cosecha(registro)
 
     return registros
+
 
 def ejecutar_modo_agricultor():
     """Ejecuta el panel completo para el perfil de Agricultor / Caficultor"""
@@ -108,7 +111,7 @@ def ejecutar_modo_agricultor():
             </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.caption(
@@ -121,10 +124,8 @@ def ejecutar_modo_agricultor():
         st.success(agri_aviso)
 
     agri_disponibles = sum(
-        agri_estado(cosecha) == "Disponible"
-        for cosecha in agri_cosechas
+        agri_estado(cosecha) == "Disponible" for cosecha in agri_cosechas
     )
-
 
     agri_col1, agri_col2, agri_col3 = st.columns(3)
 
@@ -143,7 +144,6 @@ def ejecutar_modo_agricultor():
 
     st.markdown("---")
 
-    
     # MENÚ LATERAL DEL AGRICULTOR
     from pathlib import Path
 
@@ -187,154 +187,216 @@ def ejecutar_modo_agricultor():
         key=agri_menu_key,
     )
 
-    # PERSONALIZACIÓN VISUAL DEL MENÚ 
+    # PERSONALIZACIÓN VISUAL DEL MENÚ
     st.markdown(
         """
-        <style>
-        /* FONDO VERDE CLARO */
-        .stApp {
-            background-color: #EAF4E8;
-            color: #203D2B;
+    <style>
+
+        /* =========================================================
+           IDENTIDAD GENERAL
+           ========================================================= */
+
+        .agri-ui-note {
+            color: #52715D;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            margin: 0.15rem 0 0.9rem 0;
         }
 
-        [data-testid="stHeader"] {
-            background-color: #EAF4E8;
-            color: #203D2B;
+        .agri-card-tag {
+            display: inline-block;
+            background: #EAF3E8;
+            color: #24543B;
+            border: 1px solid #B8D5BC;
+            border-radius: 999px;
+            padding: 4px 11px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            margin-bottom: 8px;
         }
 
-        /* TEXTO GENERAL Y MÉTRICAS LEGIBLES */
-        [data-testid="stMain"] [data-testid="stMarkdownContainer"],
-        [data-testid="stMain"] [data-testid="stWidgetLabel"],
-        [data-testid="stMain"] [data-testid="stMetricLabel"],
-        [data-testid="stMain"] [data-testid="stMetricValue"] {
-            color: #203D2B !important;
+        /* =========================================================
+           CUADROS DE INFORMACIÓN YA REGISTRADA
+           BLANCO
+           ========================================================= */
+
+        .agri-info-card {
+            background: #FFFFFF;
+            border: 1px solid #D4E2D6;
+            border-left: 5px solid #2F6B4F;
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin: 12px 0;
+            box-shadow: 0 4px 14px rgba(23, 75, 53, 0.08);
         }
 
-        [data-testid="stMain"] [data-testid="stCaptionContainer"] {
-            color: #526B58 !important;
+        .agri-info-card-title {
+            color: #173C2A;
+            font-size: 1.08rem;
+            font-weight: 750;
+            margin-bottom: 5px;
         }
 
-        /* MENÚ LATERAL VERDE HOJA */
-        [data-testid="stSidebar"] {
-            background-color: #C5DFBA;
-            border-right: 1px solid #A4C597;
-            color: #203D2B;
+        .agri-info-card-text {
+            color: #52715D;
+            font-size: 0.92rem;
+            line-height: 1.5;
         }
 
-        /* OPCIONES GRANDES Y ESPACIADAS */
-        [data-testid="stSidebar"] [data-testid="stRadio"] label p {
-            font-size: 18px !important;
-            font-weight: 600 !important;
-            line-height: 1.5 !important;
-            color: #203D2B !important;
+        /* =========================================================
+           FORMULARIOS
+           VERDE CLARO
+           ========================================================= */
+
+        div[data-testid="stForm"] {
+            background: #F3F9F1 !important;
+            border: 1px solid #A9CBAE !important;
+            border-left: 6px solid #2F6B4F !important;
+            border-radius: 16px !important;
+            padding: 1.35rem 1.4rem 1.25rem !important;
+            box-shadow: 0 5px 18px rgba(23, 75, 53, 0.09) !important;
         }
 
-        [data-testid="stSidebar"] [data-testid="stRadio"] label {
-            padding: 10px 6px !important;
-            min-height: 48px !important;
-            cursor: pointer;
+        div[data-testid="stForm"] label {
+            color: #173C2A !important;
+            font-weight: 650 !important;
         }
 
-        [data-testid="stSidebar"] [role="radiogroup"] {
-            gap: 6px !important;
+        div[data-testid="stForm"] input,
+        div[data-testid="stForm"] textarea {
+            background: #FFFFFF !important;
+            border: 1px solid #C7D9CA !important;
+            border-radius: 10px !important;
         }
 
-        [data-testid="stSidebar"] [data-testid="stRadio"] > label p {
-            font-size: 19px !important;
-            font-weight: 700 !important;
+        div[data-testid="stForm"] [data-baseweb="select"] > div {
+            background: #FFFFFF !important;
+            border-radius: 10px !important;
         }
 
-        /* AYUDA EN TONOS VERDES */
-        [data-testid="stSidebar"] [data-testid="stAlert"] {
-            background-color: #E4F0DE !important;
-            border: 1px solid #A4C597;
-            border-radius: 12px;
+        div[data-testid="stForm"] [data-testid="stFileUploaderDropzone"] {
+            background: #FFFFFF !important;
+            border: 1px dashed #9FC3A5 !important;
+            border-radius: 12px !important;
         }
 
-        [data-testid="stSidebar"] [data-testid="stAlert"] p {
-            color: #2E5137 !important;
-            font-size: 16px !important;
-            line-height: 1.6 !important;
-        }
+        /* =========================================================
+           BOTONES
+           ========================================================= */
 
-        /* BOTÓN AGRITECHGO */
-        [class*="st-key-agri_boton_inicio_"] button {
-            background-color: #174B35 !important;
+        div[data-testid="stFormSubmitButton"] button {
+            background: #174B35 !important;
             color: #FFFFFF !important;
             border: 1px solid #174B35 !important;
+            border-radius: 10px !important;
+            font-weight: 750 !important;
+            min-height: 44px !important;
+        }
+
+        div[data-testid="stFormSubmitButton"] button:hover {
+            background: #2F6B4F !important;
+            border-color: #2F6B4F !important;
+        }
+
+        /* =========================================================
+           TARJETAS CON BORDER=TRUE
+           INFORMACIÓN REGISTRADA
+           ========================================================= */
+
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background: #FFFFFF !important;
+            border: 1px solid #D4E2D6 !important;
+            border-radius: 16px !important;
+            box-shadow: 0 4px 14px rgba(23, 75, 53, 0.07) !important;
+        }
+
+        div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+            border-color: #A9CBAE !important;
+            box-shadow: 0 6px 18px rgba(23, 75, 53, 0.11) !important;
+        }
+                /* TARJETAS DE COSECHAS */
+        div[class*="st-key-agri_tarjeta_"] {
+            background: #FFFFFF !important;
+            border: 1px solid #D4E2D6 !important;
+            border-left: 5px solid #2F6B4F !important;
+            border-radius: 16px !important;
+            padding: 16px !important;
+            box-shadow: 0 4px 14px rgba(23, 75, 53, 0.08) !important;
+            height: 100% !important;
+        }
+
+        /* FOTOGRAFÍAS ALINEADAS */
+        div[class*="st-key-agri_tarjeta_"] [data-testid="stImage"] img {
+            width: 100% !important;
+            height: 230px !important;
+            object-fit: cover !important;
             border-radius: 12px !important;
-            min-height: 48px;
         }
 
-        [class*="st-key-agri_boton_inicio_"] button p {
-            color: #FFFFFF !important;
-            font-size: 18px !important;
-            font-weight: 700 !important;
+        /* =========================================================
+           EXPANDER = EDICIÓN
+           ========================================================= */
+
+        div[data-testid="stExpander"] {
+            background: #F8FBF6 !important;
+            border: 1px dashed #8FBA98 !important;
+            border-radius: 13px !important;
+            margin-top: 12px !important;
         }
 
-        [class*="st-key-agri_boton_inicio_"] button:hover {
-            background-color: #236747 !important;
+        div[data-testid="stExpander"] summary {
+            color: #24543B !important;
+            font-weight: 750 !important;
         }
 
-        /* BOTÓN CERRAR SESIÓN */
-        .st-key-cerrar_sesion button {
-            background-color: #A33636 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #A33636 !important;
+        /* =========================================================
+           MÉTRICAS
+           ========================================================= */
+
+        div[data-testid="stMetric"] {
+            background: #F8FBF7 !important;
+            border: 1px solid #D7E5D9 !important;
+            border-radius: 13px !important;
+            padding: 10px 14px !important;
+        }
+
+        /* =========================================================
+           MENSAJES
+           ========================================================= */
+
+        div[data-testid="stAlert"] {
             border-radius: 12px !important;
-            min-height: 48px;
         }
 
-        .st-key-cerrar_sesion button p {
-            color: #FFFFFF !important;
-            font-weight: 600 !important;
+        /* =========================================================
+           INPUTS FUERA DE FORMULARIO
+           ========================================================= */
+
+        div[data-testid="stTextInput"] input,
+        div[data-testid="stTextArea"] textarea {
+            border-radius: 10px !important;
         }
 
-        .st-key-cerrar_sesion button:hover {
-            background-color: #812929 !important;
+        /* =========================================================
+           RESPONSIVE
+           ========================================================= */
+
+        @media (max-width: 768px) {
+
+            div[data-testid="stForm"] {
+                padding: 1rem !important;
+                border-left-width: 4px !important;
+            }
+
+            div[data-testid="stVerticalBlockBorderWrapper"] {
+                border-radius: 13px !important;
+            }
         }
 
-    /* MEJORAR LEGIBILIDAD DEL CONTENIDO */
-    [data-testid="stMain"] p {
-        font-size: 17px !important;
-        line-height: 1.5 !important;
-    }
-
-    /* TÍTULOS */
-    [data-testid="stMain"] h1 {
-        font-size: 34px !important;
-    }
-
-    [data-testid="stMain"] h2 {
-        font-size: 27px !important;
-    }
-
-    [data-testid="stMain"] h3 {
-        font-size: 22px !important;
-    }
-
-    /* ETIQUETAS DE FORMULARIOS */
-    [data-testid="stMain"] [data-testid="stWidgetLabel"] p {
-        font-size: 16px !important;
-        font-weight: 600 !important;
-    }
-
-    /* TEXTOS SECUNDARIOS */
-    [data-testid="stMain"] [data-testid="stCaptionContainer"] p {
-        font-size: 15px !important;
-    }
-
-    /* FOTOGRAFÍAS UNIFORMES */
-    [data-testid="stMain"] [data-testid="stImage"] img {
-        width: 100% !important;
-        height: 260px !important;
-        object-fit: cover !important;
-        object-position: center !important;
-        border-radius: 12px !important;
-    }
-        </style>
-        """,
-        unsafe_allow_html=True
+    </style>
+    """,
+        unsafe_allow_html=True,
     )
 
     # AYUDA SEGÚN LA SECCIÓN SELECCIONADA
@@ -344,7 +406,7 @@ def ejecutar_modo_agricultor():
         "📦 Pedidos": "Revisa las solicitudes de compra que recibes.",
         "💰 Pagos": "Consulta la información de tus pagos.",
         "👤 Mi perfil": "Actualiza tus datos personales y los de tu finca.",
-        "📈 Proyectos de inversión": "Publica necesidades de financiación para tu producción."
+        "📈 Proyectos de inversión": "Publica necesidades de financiación para tu producción.",
     }
 
     st.sidebar.markdown("---")
@@ -356,28 +418,28 @@ def ejecutar_modo_agricultor():
         st.write("Consulta tus productos, fotografías, precios y disponibilidad.")
 
         if not agri_cosechas:
-            st.info("Aún no tienes cosechas registradas. Ingresa a Registrar cosecha para comenzar.")
+            st.info(
+                "Aún no tienes cosechas registradas. Ingresa a Registrar cosecha para comenzar."
+            )
         else:
             # BUSCADOR Y FILTRO EN UNA MISMA FILA
             col_busqueda, col_filtro, col_espacio = st.columns(
-                [1.5, 1, 1],
-                gap="medium"
+                [1.5, 1, 1], gap="medium"
             )
 
             with col_busqueda:
                 agri_busqueda = st.text_input(
                     "Buscar producto o finca",
                     placeholder="Ejemplo: café o La Esperanza",
-                    key=f"agri_busqueda_{agri_usuario}"
+                    key=f"agri_busqueda_{agri_usuario}",
                 )
 
             with col_filtro:
                 agri_filtro = st.selectbox(
                     "Filtrar cosechas",
                     ["Todas", "Disponible", "Agotada"],
-                    key=f"agri_filtro_{agri_usuario}"
+                    key=f"agri_filtro_{agri_usuario}",
                 )
-
 
             def agri_normalizar_busqueda(texto):
                 texto = unicodedata.normalize("NFD", str(texto).strip().casefold())
@@ -386,7 +448,8 @@ def ejecutar_modo_agricultor():
             agri_texto = agri_normalizar_busqueda(agri_busqueda)
 
             agri_visibles = [
-                cosecha for cosecha in agri_cosechas
+                cosecha
+                for cosecha in agri_cosechas
                 if (agri_filtro == "Todas" or agri_estado(cosecha) == agri_filtro)
                 and (
                     not agri_texto
@@ -395,9 +458,13 @@ def ejecutar_modo_agricultor():
                 )
             ]
 
-            st.caption(f"Mostrando {len(agri_visibles)} de {len(agri_cosechas)} cosechas")
+            st.caption(
+                f"Mostrando {len(agri_visibles)} de {len(agri_cosechas)} cosechas"
+            )
             if not agri_visibles:
-                st.info("No encontramos cosechas con esos filtros. Intenta otra búsqueda.")
+                st.info(
+                    "No encontramos cosechas con esos filtros. Intenta otra búsqueda."
+                )
                 return
 
             # Carrusel de cosechas: dos tarjetas por página
@@ -413,8 +480,7 @@ def ejecutar_modo_agricultor():
 
             # Evitar páginas inexistentes cuando cambia el filtro
             st.session_state[agri_pagina_key] = min(
-                st.session_state[agri_pagina_key],
-                max(0, agri_total_paginas - 1)
+                st.session_state[agri_pagina_key], max(0, agri_total_paginas - 1)
             )
 
             agri_pagina = st.session_state[agri_pagina_key]
@@ -422,23 +488,21 @@ def ejecutar_modo_agricultor():
             agri_inicio = agri_pagina * agri_por_pagina
             agri_fin = agri_inicio + agri_por_pagina
 
-            agri_pagina_cosechas = agri_visibles[
-                agri_inicio:agri_fin
-            ]
+            agri_pagina_cosechas = agri_visibles[agri_inicio:agri_fin]
 
-            # Mostrar tarjetas en dos columnas
+            # Mostrar tarjetas independientes en dos columnas
             agri_columnas = st.columns(
                 2,
                 gap="large",
-                border=True,
             )
+
             for indice, agri_c in enumerate(agri_pagina_cosechas):
                 agri_id = agri_c["id"]
                 agri_estado_actual = agri_estado(agri_c)
 
                 with agri_columnas[indice]:
                     with st.container(
-                        border=False,
+                        border=True,
                         key=f"agri_tarjeta_{agri_id}",
                     ):
 
@@ -446,7 +510,7 @@ def ejecutar_modo_agricultor():
                         if agri_c.get("foto"):
                             st.image(
                                 agri_c["foto"],
-                                use_container_width=True
+                                use_container_width=True,
                             )
                         else:
                             st.markdown(
@@ -461,52 +525,40 @@ def ejecutar_modo_agricultor():
                                     flex-direction:column;
                                     color:#24543B;
                                 ">
-
                                     <div style="font-size:45px;">🌱</div>
                                     <b>Sin fotografía</b>
                                 </div>
                                 """,
-                                unsafe_allow_html=True
+                                unsafe_allow_html=True,
                             )
-
 
                         st.markdown(f"### {agri_c['producto']}")
                         st.caption(f"🏡 {agri_c['finca']}")
 
                         if agri_estado_actual == "Disponible":
                             st.success("● Disponible")
-
                         else:
                             st.error("● Agotada")
 
-                        st.markdown(
-                            f"**{agri_pesos(agri_c['precio'])}**"
-                        )
-                        st.caption(
-                            f"Precio por {agri_c['unidad']}"
-                        )
+                        st.markdown(f"**{agri_pesos(agri_c['precio'])}**")
+                        st.caption(f"Precio por {agri_c['unidad']}")
 
                         st.metric(
                             "Cantidad disponible",
-                            f"{agri_c['cantidad']:g} {agri_c['unidad']}"
+                            f"{agri_c['cantidad']:g} {agri_c['unidad']}",
                         )
+
+                        st.caption(f"Calidad / clasificación: {agri_c['calidad']}")
 
                         st.caption(
-                            f"Calidad / clasificación: "
-                            f"{agri_c['calidad']}"
+                            "📅 Cosecha: " + agri_c["fecha"].strftime("%d/%m/%Y")
                         )
 
-                        st.caption(
-                            "📅 Cosecha: "
-                            + agri_c["fecha"].strftime("%d/%m/%Y")
-                        )
-
-                        # Botón de edición más visible
                         st.markdown("---")
 
                         with st.expander(
                             "✏️ EDITAR INFORMACIÓN",
-                            expanded=False
+                            expanded=False,
                         ):
                             with st.form(f"agri_editar_{agri_id}"):
 
@@ -514,14 +566,14 @@ def ejecutar_modo_agricultor():
                                     "Cantidad disponible",
                                     min_value=0.0,
                                     value=float(agri_c["cantidad"]),
-                                    step=1.0
+                                    step=1.0,
                                 )
 
                                 agri_nuevo_precio = st.number_input(
                                     "Precio por unidad (COP)",
                                     min_value=1,
                                     value=int(agri_c["precio"]),
-                                    step=100
+                                    step=100,
                                 )
 
                                 agri_activa = agri_nueva_cantidad > 0
@@ -534,7 +586,7 @@ def ejecutar_modo_agricultor():
 
                                 agri_guardar = st.form_submit_button(
                                     "💾 Guardar cambios",
-                                    use_container_width=True
+                                    use_container_width=True,
                                 )
 
                             if agri_guardar:
@@ -551,29 +603,24 @@ def ejecutar_modo_agricultor():
                                     st.error(str(error))
 
                                 except (ErrorMySQL, ConnectionError):
-                                    st.error(
-                                        "No se pudo guardar el cambio en TiDB."
-                                    )
+                                    st.error("No se pudo guardar el cambio en TiDB.")
 
                                 else:
                                     st.session_state[agri_aviso_key] = (
                                         "Cosecha actualizada en la base de datos."
                                     )
                                     st.rerun()
-
             # Controles de navegación
             st.markdown("---")
 
-            nav_izq, nav_centro, nav_der = st.columns(
-                [1, 2, 1]
-            )
+            nav_izq, nav_centro, nav_der = st.columns([1, 2, 1])
 
             with nav_izq:
                 if st.button(
                     "⬅ Anterior",
                     disabled=agri_pagina == 0,
                     use_container_width=True,
-                    key=f"agri_anterior_{agri_usuario_id}"
+                    key=f"agri_anterior_{agri_usuario_id}",
                 ):
                     st.session_state[agri_pagina_key] -= 1
                     st.rerun()
@@ -584,7 +631,7 @@ def ejecutar_modo_agricultor():
                     f"<b>Página {agri_pagina + 1} de "
                     f"{agri_total_paginas}</b>"
                     f"</div>",
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
 
             with nav_der:
@@ -592,20 +639,15 @@ def ejecutar_modo_agricultor():
                     "Siguiente ➡",
                     disabled=agri_pagina >= agri_total_paginas - 1,
                     use_container_width=True,
-                    key=f"agri_siguiente_{agri_usuario_id}"
+                    key=f"agri_siguiente_{agri_usuario_id}",
                 ):
                     st.session_state[agri_pagina_key] += 1
                     st.rerun()
 
-
-
     # SECCIÓN 2: REGISTRO DE COSECHA
     elif opcion_menu == "➕ Registrar cosecha":
 
-        col_titulo_form, col_titulo_cosechas = st.columns(
-            [1.5, 1],
-            gap="large"
-        )
+        col_titulo_form, col_titulo_cosechas = st.columns([1.5, 1], gap="large")
 
         with col_titulo_form:
             st.subheader("➕ Registra tu cosecha")
@@ -616,39 +658,61 @@ def ejecutar_modo_agricultor():
 
         with col_titulo_cosechas:
             st.subheader("🌾 Tus cosechas")
-            st.caption(
-                "Selecciona una cosecha para consultar sus detalles."
-            )
+            st.caption("Selecciona una cosecha para consultar sus detalles.")
 
-        col_formulario, col_vista = st.columns(
-            [1.5, 1],
-            gap="large"
-        )
-
+        col_formulario, col_vista = st.columns([1.5, 1], gap="large")
 
         with col_formulario:
             with st.form(f"agri_registro_{agri_usuario}"):
-                agri_finca = st.text_input("Nombre del lote / finca", placeholder="Ejemplo: Finca La Esperanza", max_chars=100)
-                agri_producto = st.text_input("Producto", placeholder="Ejemplo: Café pergamino, tomate o plátano", max_chars=80)
-                
+                st.markdown("### 🌱 Datos de la nueva cosecha")
+                st.markdown(
+                    '<p class="agri-ui-note">Completa la información del producto que deseas registrar.</p>',
+                    unsafe_allow_html=True,
+                )
+                agri_finca = st.text_input(
+                    "Nombre del lote / finca",
+                    placeholder="Ejemplo: Finca La Esperanza",
+                    max_chars=100,
+                )
+                agri_producto = st.text_input(
+                    "Producto",
+                    placeholder="Ejemplo: Café pergamino, tomate o plátano",
+                    max_chars=80,
+                )
+
                 agri_calidad = st.text_input(
                     "Calidad, variedad o clasificación (opcional)",
                     value="No aplica",
                     placeholder="Ejemplo: primera calidad, orgánico, variedad Hass",
                     max_chars=100,
-                    help="Puedes indicar la clasificación de cualquier producto agrícola."
+                    help="Puedes indicar la clasificación de cualquier producto agrícola.",
                 )
 
-                agri_unidad = st.selectbox("Unidad de venta", ["kg", "arroba", "unidad"])
-                agri_cantidad = st.number_input("Cantidad disponible", min_value=0.0, value=0.0, step=1.0)
-                agri_precio = st.number_input("Precio por unidad seleccionada (COP)", min_value=0, value=0, step=100)
+                agri_unidad = st.selectbox(
+                    "Unidad de venta", ["kg", "arroba", "unidad"]
+                )
+                agri_cantidad = st.number_input(
+                    "Cantidad disponible", min_value=0.0, value=0.0, step=1.0
+                )
+                agri_precio = st.number_input(
+                    "Precio por unidad seleccionada (COP)",
+                    min_value=0,
+                    value=0,
+                    step=100,
+                )
                 agri_fecha = st.date_input("Fecha de cosecha", value=date.today())
-                agri_foto = st.file_uploader("Fotografía del producto", type=["png", "jpg", "jpeg", "webp"])
+                agri_foto = st.file_uploader(
+                    "Fotografía del producto", type=["png", "jpg", "jpeg", "webp"]
+                )
 
-                agri_registrar = st.form_submit_button("🌱 Registrar cosecha", use_container_width=True)
+                agri_registrar = st.form_submit_button(
+                    "🌱 Registrar cosecha", use_container_width=True
+                )
 
             if agri_registrar:
-                agri_errores = agri_validar(agri_finca, agri_producto, agri_cantidad, agri_precio)
+                agri_errores = agri_validar(
+                    agri_finca, agri_producto, agri_cantidad, agri_precio
+                )
                 if agri_errores:
                     for agri_error in agri_errores:
                         st.error(agri_error)
@@ -681,23 +745,19 @@ def ejecutar_modo_agricultor():
                         )
                         st.rerun()
 
-        
         with col_vista:
-         if agri_cosechas:
-            for cosecha_resumen in agri_cosechas:
+            if agri_cosechas:
+                for cosecha_resumen in agri_cosechas:
 
                     nombre_producto = cosecha_resumen["producto"]
                     nombre_finca = cosecha_resumen["finca"]
 
                     with st.expander(
-                        f"🌱 {nombre_producto} · 🏡 {nombre_finca}",
-                        expanded=False
+                        f"🌱 {nombre_producto} · 🏡 {nombre_finca}", expanded=False
                     ):
                         st.markdown(f"**Producto:** {nombre_producto}")
 
-                        st.markdown(
-                            f"**Finca o lote:** {nombre_finca}"
-                        )
+                        st.markdown(f"**Finca o lote:** {nombre_finca}")
 
                         st.markdown(
                             f"**Calidad o clasificación:** "
@@ -720,32 +780,39 @@ def ejecutar_modo_agricultor():
                             f"{cosecha_resumen['fecha'].strftime('%d/%m/%Y')}"
                         )
 
-                        st.markdown(
-                            f"**Estado:** "
-                            f"{agri_estado(cosecha_resumen)}"
-                        )
+                        st.markdown(f"**Estado:** " f"{agri_estado(cosecha_resumen)}")
 
                         if cosecha_resumen.get("foto"):
                             st.image(
                                 cosecha_resumen["foto"],
                                 caption="Fotografía de tu cosecha",
-                                use_container_width=True
+                                use_container_width=True,
                             )
                         else:
                             st.caption("📷 Esta cosecha no tiene fotografía.")
 
-            else:
-                st.info(
-                    "Todavía no tienes cosechas registradas. "
-                    "Cuando guardes tu primera cosecha aparecerá aquí."
-                )
+                else:
+                    st.info(
+                        "Todavía no tienes cosechas registradas. "
+                        "Cuando guardes tu primera cosecha aparecerá aquí."
+                    )
 
-    
     # SECCIÓN 3: PEDIDOS
     elif opcion_menu == "📦 Pedidos":
         st.subheader("📦 Pedidos recibidos")
-        st.write(
-            "Consulta las solicitudes de compra de tus cosechas."
+        st.write("Consulta las solicitudes de compra de tus cosechas.")
+        st.markdown(
+            """
+    <div class="agri-info-card">
+        <div class="agri-card-tag">INFORMACIÓN REGISTRADA</div>
+        <div class="agri-info-card-title">📦 Solicitudes de compra</div>
+        <div class="agri-info-card-text">
+            Aquí puedes consultar las solicitudes realizadas por los compradores
+            y gestionar su estado.
+        </div>
+    </div>
+    """,
+            unsafe_allow_html=True,
         )
 
         if st.button(
@@ -755,24 +822,13 @@ def ejecutar_modo_agricultor():
             st.rerun()
 
         try:
-            agri_pedidos = listar_pedidos_agricultor(
-                agri_usuario_id
-            )
+            agri_pedidos = listar_pedidos_agricultor(agri_usuario_id)
 
-            pendientes = [
-                p for p in agri_pedidos
-                if p["estado"] == "pendiente"
-            ]
+            pendientes = [p for p in agri_pedidos if p["estado"] == "pendiente"]
 
-            aceptados = [
-                p for p in agri_pedidos
-                if p["estado"] == "aceptado"
-            ]
+            aceptados = [p for p in agri_pedidos if p["estado"] == "aceptado"]
 
-            rechazados = [
-                p for p in agri_pedidos
-                if p["estado"] == "rechazado"
-            ]
+            rechazados = [p for p in agri_pedidos if p["estado"] == "rechazado"]
 
             met1, met2, met3 = st.columns(3)
             met1.metric("Pendientes", len(pendientes))
@@ -782,15 +838,11 @@ def ejecutar_modo_agricultor():
             st.markdown("---")
 
             if not agri_pedidos:
-                st.info(
-                    "Todavía no tienes solicitudes de compra."
-                )
+                st.info("Todavía no tienes solicitudes de compra.")
 
             for pedido in agri_pedidos:
                 with st.container(border=True):
-                    st.markdown(
-                        f"### 📦 Pedido #{pedido['id']}"
-                    )
+                    st.markdown(f"### 📦 Pedido #{pedido['id']}")
 
                     st.caption(
                         f"Comprador: {pedido['comprador']} · "
@@ -799,22 +851,16 @@ def ejecutar_modo_agricultor():
 
                     col1, col2 = st.columns(2)
 
+                    col1.write(f"**Producto:** {pedido['producto']}")
                     col1.write(
-                        f"**Producto:** {pedido['producto']}"
-                    )
-                    col1.write(
-                        f"**Cantidad:** "
-                        f"{pedido['cantidad']} {pedido['unidad']}"
+                        f"**Cantidad:** " f"{pedido['cantidad']} {pedido['unidad']}"
                     )
 
                     col2.write(
                         f"**Precio unitario:** "
                         f"{agri_pesos(pedido['precio_unitario'])}"
                     )
-                    col2.write(
-                        f"**Total:** "
-                        f"{agri_pesos(pedido['total'])}"
-                    )
+                    col2.write(f"**Total:** " f"{agri_pesos(pedido['total'])}")
 
                     if pedido["estado"] == "pendiente":
                         st.warning("⏳ Pendiente de respuesta")
@@ -839,9 +885,7 @@ def ejecutar_modo_agricultor():
                                     f"Código: {error.errno}."
                                 )
                             except ConnectionError:
-                                st.error(
-                                    "No se pudo conectar con TiDB."
-                                )
+                                st.error("No se pudo conectar con TiDB.")
                             else:
                                 st.session_state[agri_aviso_key] = (
                                     f"Pedido #{pedido['id']} aceptado. "
@@ -867,9 +911,7 @@ def ejecutar_modo_agricultor():
                                     f"Código: {error.errno}."
                                 )
                             except ConnectionError:
-                                st.error(
-                                    "No se pudo conectar con TiDB."
-                                )
+                                st.error("No se pudo conectar con TiDB.")
                             else:
                                 st.session_state[agri_aviso_key] = (
                                     f"Pedido #{pedido['id']} rechazado."
@@ -877,9 +919,7 @@ def ejecutar_modo_agricultor():
                                 st.rerun()
 
                     elif pedido["estado"] == "aceptado":
-                        st.success(
-                            "✅ Pedido aceptado. Inventario descontado."
-                        )
+                        st.success("✅ Pedido aceptado. Inventario descontado.")
 
                     elif pedido["estado"] == "rechazado":
                         st.error("❌ Pedido rechazado.")
@@ -891,24 +931,15 @@ def ejecutar_modo_agricultor():
                         st.info("Pedido cancelado.")
 
         except ErrorMySQL as error:
-            st.error(
-                "No se pudieron consultar los pedidos. "
-                f"Código: {error.errno}."
-            )
+            st.error("No se pudieron consultar los pedidos. " f"Código: {error.errno}.")
         except ConnectionError:
             st.error("No se pudo conectar con TiDB.")
-
-    
-
 
     # SECCIÓN 4: PAGOS
     elif opcion_menu == "💰 Pagos":
 
         st.subheader("💰 Mis pagos")
-        st.write(
-            "Consulta los pagos registrados por las ventas "
-            "de tus cosechas."
-        )
+        st.write("Consulta los pagos registrados por las ventas " "de tus cosechas.")
 
         pagos = listar_pagos_agricultor(agri_usuario_id)
 
@@ -920,20 +951,14 @@ def ejecutar_modo_agricultor():
             )
 
         else:
-            total_recibido = sum(
-                pago["monto"] for pago in pagos
-            )
+            total_recibido = sum(pago["monto"] for pago in pagos)
 
             col1, col2 = st.columns(2)
 
-            col1.metric(
-                "Pagos registrados",
-                len(pagos)
-            )
+            col1.metric("Pagos registrados", len(pagos))
 
             col2.metric(
-                "Total de pagos",
-                f"${total_recibido:,.0f} COP".replace(",", ".")
+                "Total de pagos", f"${total_recibido:,.0f} COP".replace(",", ".")
             )
 
             st.markdown("---")
@@ -945,53 +970,34 @@ def ejecutar_modo_agricultor():
                     col1, col2 = st.columns([3, 1])
 
                     with col1:
-                        st.markdown(
-                            f"### 💳 Pago #{pago['pago_id']}"
-                        )
+                        st.markdown(f"### 💳 Pago #{pago['pago_id']}")
+
+                        st.write(f"**Comprador:** {pago['comprador']}")
+
+                        st.write(f"**Producto:** {pago['producto']}")
+
+                        st.write(f"**Finca:** {pago['finca']}")
 
                         st.write(
-                            f"**Comprador:** {pago['comprador']}"
+                            f"**Cantidad:** " f"{pago['cantidad']} {pago['unidad']}"
                         )
 
-                        st.write(
-                            f"**Producto:** {pago['producto']}"
-                        )
+                        st.write(f"**Referencia:** {pago['referencia']}")
 
-                        st.write(
-                            f"**Finca:** {pago['finca']}"
-                        )
-
-                        st.write(
-                            f"**Cantidad:** "
-                            f"{pago['cantidad']} {pago['unidad']}"
-                        )
-
-                        st.write(
-                            f"**Referencia:** {pago['referencia']}"
-                        )
-
-                        st.caption(
-                            f"Fecha: {pago['creado_en']}"
-                        )
+                        st.caption(f"Fecha: {pago['creado_en']}")
 
                     with col2:
                         st.metric(
-                            "Valor pagado",
-                            f"${pago['monto']:,.0f}".replace(",", ".")
+                            "Valor pagado", f"${pago['monto']:,.0f}".replace(",", ".")
                         )
 
                         if pago["estado"] == "confirmado":
                             st.success("Confirmado")
                         else:
-                            st.warning(
-                                pago["estado"].capitalize()
-                            )
+                            st.warning(pago["estado"].capitalize())
 
                         if pago["es_simulado"]:
                             st.caption("Pago de demostración")
-
-
-
 
     # SECCIÓN 5: PERFIL
     elif opcion_menu == "👤 Mi perfil":
@@ -1001,14 +1007,33 @@ def ejecutar_modo_agricultor():
         st.caption("Usuario de acceso: " + agri_usuario)
 
         with st.form(f"agri_form_perfil_{agri_usuario}"):
-            agri_nombre_perfil = st.text_input("Nombre del productor *", value=agri_perfil["nombre"], max_chars=100)
-            agri_telefono_perfil = st.text_input("Celular de contacto", value=agri_perfil["telefono"], max_chars=25)
-            agri_municipio_perfil = st.text_input("Municipio *", value=agri_perfil["municipio"], max_chars=80)
-            agri_vereda_perfil = st.text_input("Vereda o sector", value=agri_perfil["vereda"], max_chars=100)
-            agri_finca_perfil = st.text_input("Nombre de la finca principal *", value=agri_perfil["finca_principal"], max_chars=100)
-            agri_descripcion_perfil = st.text_area("Acerca de tu actividad agrícola", value=agri_perfil["descripcion"], max_chars=600, height=120)
+            agri_nombre_perfil = st.text_input(
+                "Nombre del productor *", value=agri_perfil["nombre"], max_chars=100
+            )
+            agri_telefono_perfil = st.text_input(
+                "Celular de contacto", value=agri_perfil["telefono"], max_chars=25
+            )
+            agri_municipio_perfil = st.text_input(
+                "Municipio *", value=agri_perfil["municipio"], max_chars=80
+            )
+            agri_vereda_perfil = st.text_input(
+                "Vereda o sector", value=agri_perfil["vereda"], max_chars=100
+            )
+            agri_finca_perfil = st.text_input(
+                "Nombre de la finca principal *",
+                value=agri_perfil["finca_principal"],
+                max_chars=100,
+            )
+            agri_descripcion_perfil = st.text_area(
+                "Acerca de tu actividad agrícola",
+                value=agri_perfil["descripcion"],
+                max_chars=600,
+                height=120,
+            )
 
-            agri_guardar_perfil = st.form_submit_button("Guardar mi perfil", use_container_width=True)
+            agri_guardar_perfil = st.form_submit_button(
+                "Guardar mi perfil", use_container_width=True
+            )
 
         if agri_guardar_perfil:
             agri_errores_perfil = []
@@ -1046,8 +1071,7 @@ def ejecutar_modo_agricultor():
                         )
                     else:
                         st.error(
-                            f"No se pudo guardar el perfil. "
-                            f"Código: {error.errno}."
+                            f"No se pudo guardar el perfil. " f"Código: {error.errno}."
                         )
                 except ConnectionError:
                     st.error("No se pudo conectar con TiDB.")
@@ -1057,28 +1081,22 @@ def ejecutar_modo_agricultor():
                     )
                     st.rerun()
 
-
     # SECCIÓN 6: PROYECTOS DE INVERSIÓN
     elif opcion_menu == "📈 Proyectos de inversión":
         st.subheader("📈 Proyectos de inversión")
-        st.write(
-            "Selecciona una finca y describe qué necesitas financiar."
-        )
+        st.write("Selecciona una finca y describe qué necesitas financiar.")
         st.info(
             "Los proyectos y aportes de esta versión son simulados. "
             "La rentabilidad indicada es una estimación del proyecto."
         )
 
         agri_fincas_activas = {
-            finca["id"]: finca
-            for finca in agri_fincas_bd
-            if finca["activa"]
+            finca["id"]: finca for finca in agri_fincas_bd if finca["activa"]
         }
 
         if not agri_fincas_activas:
             st.warning(
-                "Primero registra una finca desde Mi perfil "
-                "o Registrar cosecha."
+                "Primero registra una finca desde Mi perfil " "o Registrar cosecha."
             )
         else:
             with st.form(
@@ -1159,9 +1177,7 @@ def ejecutar_modo_agricultor():
                             "titulo": proyecto_titulo,
                             "descripcion": proyecto_descripcion,
                             "meta": proyecto_meta,
-                            "rentabilidad_porcentaje": (
-                                proyecto_rentabilidad
-                            ),
+                            "rentabilidad_porcentaje": (proyecto_rentabilidad),
                             "riesgo": proyecto_riesgo,
                             "porcentaje_ventas": proyecto_ventas,
                         },
@@ -1170,8 +1186,7 @@ def ejecutar_modo_agricultor():
                     st.error(str(error))
                 except ErrorMySQL as error:
                     st.error(
-                        "No se pudo publicar el proyecto. "
-                        f"Código: {error.errno}."
+                        "No se pudo publicar el proyecto. " f"Código: {error.errno}."
                     )
                 except ConnectionError:
                     st.error("No se pudo conectar con TiDB.")
@@ -1192,9 +1207,7 @@ def ejecutar_modo_agricultor():
             st.rerun()
 
         try:
-            agri_proyectos = listar_proyectos_productor(
-                agri_usuario_id
-            )
+            agri_proyectos = listar_proyectos_productor(agri_usuario_id)
         except (ErrorMySQL, ConnectionError):
             st.error("No se pudieron consultar los proyectos.")
         else:
@@ -1205,8 +1218,7 @@ def ejecutar_modo_agricultor():
                 with st.container(border=True):
                     st.subheader(proyecto["titulo"])
                     st.caption(
-                        f"Finca: {proyecto['finca']} · "
-                        f"Estado: {proyecto['estado']}"
+                        f"Finca: {proyecto['finca']} · " f"Estado: {proyecto['estado']}"
                     )
                     st.write(proyecto["descripcion"] or "")
 
@@ -1221,9 +1233,7 @@ def ejecutar_modo_agricultor():
                     )
 
                     progreso = (
-                        float(
-                            proyecto["recaudado"] / proyecto["meta"]
-                        )
+                        float(proyecto["recaudado"] / proyecto["meta"])
                         if proyecto["meta"] > 0
                         else 0.0
                     )
@@ -1232,4 +1242,3 @@ def ejecutar_modo_agricultor():
                         max(0.0, min(progreso, 1.0)),
                         text=f"Financiación: {progreso * 100:.1f}%",
                     )
-                    
