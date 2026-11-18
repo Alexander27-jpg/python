@@ -600,3 +600,35 @@ def rechazar_pedido(agricultor_id, pedido_id):
             raise ValueError(
                 "No se pudo actualizar el estado del pedido."
             )
+
+        
+def listar_pagos_agricultor(agricultor_id):
+    """Consulta los pagos recibidos por las cosechas del agricultor."""
+    with abrir_bd() as (_, cursor):
+        cursor.execute(
+            """
+            SELECT
+                pa.id AS pago_id,
+                pa.pedido_id,
+                pa.monto,
+                pa.estado,
+                pa.referencia,
+                pa.es_simulado,
+                pa.creado_en,
+                u.nombre AS comprador,
+                c.producto,
+                f.nombre AS finca,
+                p.cantidad,
+                p.unidad
+            FROM pagos pa
+            JOIN pedidos p ON p.id = pa.pedido_id
+            JOIN usuarios u ON u.id = p.comprador_id
+            JOIN cosechas c ON c.id = p.cosecha_id
+            JOIN fincas f ON f.id = c.finca_id
+            WHERE f.agricultor_id = %s
+            ORDER BY pa.creado_en DESC, pa.id DESC
+            """,
+            (agricultor_id,),
+        )
+        return cursor.fetchall()
+

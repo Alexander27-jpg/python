@@ -1,6 +1,8 @@
 import streamlit as st
+import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 from html import escape
+from pathlib import Path
 from mysql.connector import Error as ErrorMySQL
 
 from database.agricultor_db import listar_cosechas
@@ -8,6 +10,7 @@ from database.comprador_db import (
     iniciar_comprador,
     crear_pedido,
     listar_pedidos,
+    cancelar_pedido,
     registrar_pago,
     listar_pagos
 )
@@ -21,39 +24,197 @@ def cop(valor):
     return f"{signo}${abs(valor):,.0f} COP".replace(",", ".")
 
 
+def _normalizar(texto):
+    """Minúsculas y sin tildes, para que 'cafe' encuentre 'Café'."""
+    texto = unicodedata.normalize("NFD", str(texto).strip().casefold())
+    return "".join(c for c in texto if unicodedata.category(c) != "Mn")
 
+
+# Vistas del menú lateral
+VISTA_INICIO = "🏠 Inicio"
+VISTA_FINCAS = "🏡 Fincas"
+VISTA_PEDIDOS = "📦 Mis pedidos"
+
+AYUDAS_MENU = {
+    VISTA_INICIO: "Explora los productos del campo y solicita tus compras.",
+    VISTA_FINCAS: "Consulta los productos de cada finca.",
+    VISTA_PEDIDOS: "Revisa tus pedidos, cancela los pendientes y paga los aceptados.",
+}
+
+# Estado visual de un pedido: (texto, color de fondo, color de texto)
+ESTADOS_PEDIDO = {
+    "pendiente": ("Pendiente", "#FFF3CD", "#7A5C00"),
+    "por_pagar": ("Aceptado · por pagar", "#DCEBFA", "#1F4E79"),
+    "pagado": ("Pagado", "#D4EDDA", "#1E5C34"),
+    "rechazado": ("Rechazado", "#F8D7DA", "#8A2C2C"),
+    "cancelado": ("Cancelado", "#E2E3E5", "#4A4F54"),
+}
 
 
 # ----------------------------------------------------------------------
-# Estilos (barra de búsqueda, panel azul de finca)
+# Estilos: misma paleta y tamaños que el módulo del agricultor
 # ----------------------------------------------------------------------
 ESTILOS = """
 <style>
-.finca-panel {
-    background: #4068A8;
-    color: white;
-    border-radius: 10px;
-    padding: 18px;
-    min-height: 260px;
-}
-.finca-panel h3 { color: white; margin: 0 0 8px 0; }
-.finca-panel p  { margin: 4px 0; font-size: 0.95rem; }
-.sin-foto {
-    background:#EAF3E8; border-radius:8px; height:140px;
-    display:flex; align-items:center; justify-content:center; color:#24543B;
+/* FONDO VERDE CLARO */
+.stApp {
+    background-color: #EAF4E8;
+    color: #203D2B;
 }
 
-/* ---------- Carrusel horizontal por finca ---------- */
+[data-testid="stHeader"] {
+    background-color: #EAF4E8;
+    color: #203D2B;
+}
+
+/* TEXTO GENERAL Y MÉTRICAS LEGIBLES */
+[data-testid="stMain"] [data-testid="stMarkdownContainer"],
+[data-testid="stMain"] [data-testid="stWidgetLabel"],
+[data-testid="stMain"] [data-testid="stMetricLabel"],
+[data-testid="stMain"] [data-testid="stMetricValue"] {
+    color: #203D2B !important;
+}
+
+[data-testid="stMain"] [data-testid="stCaptionContainer"] {
+    color: #526B58 !important;
+}
+
+/* MENÚ LATERAL VERDE HOJA */
+[data-testid="stSidebar"] {
+    background-color: #C5DFBA;
+    border-right: 1px solid #A4C597;
+    color: #203D2B;
+}
+
+/* OPCIONES GRANDES Y ESPACIADAS */
+[data-testid="stSidebar"] [data-testid="stRadio"] label p {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    line-height: 1.5 !important;
+    color: #203D2B !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    padding: 10px 6px !important;
+    min-height: 48px !important;
+    cursor: pointer;
+}
+
+[data-testid="stSidebar"] [role="radiogroup"] {
+    gap: 6px !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stRadio"] > label p {
+    font-size: 19px !important;
+    font-weight: 700 !important;
+}
+
+/* AYUDA EN TONOS VERDES */
+[data-testid="stSidebar"] [data-testid="stAlert"] {
+    background-color: #E4F0DE !important;
+    border: 1px solid #A4C597;
+    border-radius: 12px;
+}
+
+[data-testid="stSidebar"] [data-testid="stAlert"] p {
+    color: #2E5137 !important;
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+}
+
+/* BOTÓN AGRITECHGO */
+[class*="st-key-comp_boton_inicio_"] button {
+    background-color: #174B35 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #174B35 !important;
+    border-radius: 12px !important;
+    min-height: 48px;
+}
+
+[class*="st-key-comp_boton_inicio_"] button p {
+    color: #FFFFFF !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+}
+
+[class*="st-key-comp_boton_inicio_"] button:hover {
+    background-color: #236747 !important;
+}
+
+/* BOTÓN CERRAR SESIÓN (lo dibuja main.py) */
+.st-key-cerrar_sesion button {
+    background-color: #A33636 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #A33636 !important;
+    border-radius: 12px !important;
+    min-height: 48px;
+}
+
+.st-key-cerrar_sesion button p {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+.st-key-cerrar_sesion button:hover {
+    background-color: #812929 !important;
+}
+
+/* MEJORAR LEGIBILIDAD DEL CONTENIDO */
+[data-testid="stMain"] p {
+    font-size: 17px !important;
+    line-height: 1.5 !important;
+}
+
+/* TÍTULOS */
+[data-testid="stMain"] h1 {
+    font-size: 34px !important;
+}
+
+[data-testid="stMain"] h2 {
+    font-size: 27px !important;
+}
+
+[data-testid="stMain"] h3 {
+    font-size: 22px !important;
+}
+
+/* ETIQUETAS DE FORMULARIOS */
+[data-testid="stMain"] [data-testid="stWidgetLabel"] p {
+    font-size: 16px !important;
+    font-weight: 600 !important;
+}
+
+/* TEXTOS SECUNDARIOS */
+[data-testid="stMain"] [data-testid="stCaptionContainer"] p {
+    font-size: 15px !important;
+}
+
+/* FOTOGRAFÍAS UNIFORMES */
+[data-testid="stMain"] [data-testid="stImage"] img {
+    width: 100% !important;
+    height: 260px !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    border-radius: 12px !important;
+}
+
+/* ---------- Carrusel horizontal por finca (propio del comprador) ---------- */
+.sin-foto {
+    background:#EAF3E8; border-radius:12px; height:180px;
+    display:flex; align-items:center; justify-content:center;
+    flex-direction:column; color:#24543B;
+}
+
 .finca-banner {
-    background: #4068A8;
+    background: #236747;
     color: white;
-    border-radius: 10px;
+    border-radius: 14px;
     padding: 14px 18px;
     margin-top: 8px;
 }
-.finca-banner h3 { color: white; margin: 0 0 4px 0; }
-.finca-banner p  { margin: 2px 0; font-size: 0.9rem; opacity: 0.95; }
-.finca-banner .hint { font-size: 0.8rem; opacity: 0.8; margin-top: 6px; }
+.finca-banner h3 { color: white !important; margin: 0 0 4px 0; }
+.finca-banner p  { color: white !important; margin: 2px 0; font-size: 15px !important; opacity: 0.95; }
+.finca-banner .hint { font-size: 13px !important; opacity: 0.8; margin-top: 6px; }
 
 div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"] {
     flex-wrap: nowrap !important;
@@ -74,23 +235,104 @@ div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scr
     height: 8px;
 }
 div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-thumb {
-    background: #4068A8;
+    background: #236747;
     border-radius: 8px;
 }
 div[class*="st-key-carrusel_"] div[data-testid="stHorizontalBlock"]::-webkit-scrollbar-track {
-    background: #E3EAF5;
+    background: #C5DFBA;
     border-radius: 8px;
+}
+div[class*="st-key-carrusel_"] div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: #A4C597;
+    border-radius: 14px;
+}
+/* Fotos de las tarjetas del carrusel un poco más bajas que las del agricultor */
+div[class*="st-key-carrusel_"] [data-testid="stImage"] img {
+    height: 180px !important;
+}
+
+/* ---------- Mis pedidos ---------- */
+.insignia {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    white-space: nowrap;
+}
+.dato .etiqueta {
+    display: block;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #526B58;
+}
+.dato .valor {
+    display: block;
+    font-size: 18px;
+    font-weight: 700;
+    color: #203D2B;
+}
+/* Confirmar cancelación en rojo, igual que Cerrar sesión */
+[class*="st-key-comp_confirmar_cancelar_"] button {
+    background-color: #A33636 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #A33636 !important;
+    border-radius: 12px !important;
+}
+[class*="st-key-comp_confirmar_cancelar_"] button p {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+[class*="st-key-comp_confirmar_cancelar_"] button:hover {
+    background-color: #812929 !important;
 }
 </style>
 """
 
 
-
-
-
 # ----------------------------------------------------------------------
 # Componentes visuales
 # ----------------------------------------------------------------------
+
+def _solicitar_pedido(comprador_id, cosecha_id, precio, unidad, clave):
+    """
+    Callback del botón "Solicitar compra".
+    Crea el pedido y deja la cantidad en cero para que la misma
+    solicitud no se pueda enviar dos veces por accidente.
+    """
+    cantidad = round(float(st.session_state.get(f"comp_cantidad_{clave}", 0.0)), 3)
+    mensaje_key = f"comp_msg_{clave}"
+
+    try:
+        pedido_id = crear_pedido(
+            comprador_id,
+            cosecha_id,
+            cantidad,
+            precio,
+            unidad,
+        )
+    except ValueError as error:
+        st.session_state[mensaje_key] = ("error", str(error))
+    except ErrorMySQL as error:
+        st.session_state[mensaje_key] = (
+            "error",
+            "No se pudo confirmar el resultado del pedido. "
+            "Actualiza Mis pedidos antes de volver a intentarlo. "
+            f"Código: {error.errno}.",
+        )
+    except ConnectionError:
+        st.session_state[mensaje_key] = ("error", "No se pudo conectar con TiDB.")
+    else:
+        st.session_state[mensaje_key] = (
+            "ok",
+            f"Pedido #{pedido_id} guardado. "
+            "Está pendiente de aceptación del agricultor. "
+            "Puedes verlo o cancelarlo en Mis pedidos.",
+        )
+        st.session_state[f"comp_cantidad_{clave}"] = 0.0
+        st.toast(f"Pedido #{pedido_id} enviado al agricultor", icon="✅")
+
 
 def _tarjeta_producto(cosecha, comprador_id):
     unidad = cosecha["unidad"]
@@ -103,7 +345,12 @@ def _tarjeta_producto(cosecha, comprador_id):
             st.image(cosecha["foto"], use_container_width=True)
         else:
             st.markdown(
-                '<div class="sin-foto"><b>🌱 Cosecha Local</b></div>',
+                """
+                <div class="sin-foto">
+                    <div style="font-size:40px;">🌱</div>
+                    <b>Sin fotografía</b>
+                </div>
+                """,
                 unsafe_allow_html=True,
             )
 
@@ -114,11 +361,15 @@ def _tarjeta_producto(cosecha, comprador_id):
         )
         st.caption(f"⭐ {cosecha['calidad']}")
 
-        with st.expander("🛒 Comprar"):
+        # Resultado de la última solicitud de esta tarjeta (si existe)
+        mensaje = st.session_state.pop(f"comp_msg_{clave}", None)
+
+        with st.expander("🛒 Comprar", expanded=mensaje is not None):
 
             cantidad = st.number_input(
                 f"Cantidad en {unidad}",
                 min_value=0.0,
+                max_value=float(disponible),
                 value=0.0,
                 step=1.0 if unidad == "unidad" else 0.1,
                 format="%.3f",
@@ -131,40 +382,26 @@ def _tarjeta_producto(cosecha, comprador_id):
 
             st.markdown(f"**Total:** {cop(total)}")
             st.caption(
-                "El pedido queda pendiente de aceptación. "
-                "No se cobra ni se reserva inventario todavía."
+                "Tu solicitud queda pendiente hasta que el agricultor la "
+                "acepte. El inventario se descuenta en ese momento y solo "
+                "entonces podrás pagar."
             )
 
-            if st.button(
+            st.button(
                 "✅ Solicitar compra",
                 key=f"comp_solicitar_{clave}",
-            ):
-                try:
-                    pedido_id = crear_pedido(
-                        comprador_id,
-                        cosecha["id"],
-                        cantidad,
-                        precio,
-                        unidad,
-                    )
-                except ValueError as error:
-                    st.error(str(error))
-                except ErrorMySQL as error:
-                    st.error(
-                        "No se pudo confirmar el resultado del pedido. "
-                        "Actualiza Mis pedidos antes de volver a intentarlo. "
-                        f"Código: {error.errno}."
-                    )
-                except ConnectionError:
-                    st.error("No se pudo conectar con TiDB.")
+                on_click=_solicitar_pedido,
+                args=(comprador_id, cosecha["id"], precio, unidad, clave),
+                disabled=cantidad <= 0,
+                use_container_width=True,
+            )
+
+            if mensaje:
+                tipo, texto_mensaje = mensaje
+                if tipo == "ok":
+                    st.success(texto_mensaje)
                 else:
-                    st.session_state[
-                        f"comp_aviso_{comprador_id}"
-                    ] = (
-                        f"Pedido #{pedido_id} guardado. "
-                        "Está pendiente de aceptación del agricultor."
-                    )
-                    st.rerun()
+                    st.error(texto_mensaje)
 
 
 
@@ -248,19 +485,21 @@ def _barra_busqueda(comprador_id):
             key=f"comp_buscar_{comprador_id}",
         )
 
-    return busqueda.strip().casefold()
+    return _normalizar(busqueda)
 
 
-def _vista_inicio(comprador_id):
+def _vista_inicio(comprador_id, cosechas):
+    st.subheader("🌾 Productos del campo")
+    st.write("Busca por producto o finca y desliza para ver todos los lotes.")
+
     busqueda = _barra_busqueda(comprador_id)
-    cosechas = listar_cosechas(solo_disponibles=True)
 
     if busqueda:
         cosechas = [
             cosecha
             for cosecha in cosechas
-            if busqueda in cosecha["producto"].casefold()
-            or busqueda in cosecha["finca"].casefold()
+            if busqueda in _normalizar(cosecha["producto"])
+            or busqueda in _normalizar(cosecha["finca"])
         ]
 
     if not cosechas:
@@ -273,8 +512,10 @@ def _vista_inicio(comprador_id):
         _fila_finca(finca_id, lotes, comprador_id)
 
 
-def _vista_fincas(comprador_id):
-    cosechas = listar_cosechas(solo_disponibles=True)
+def _vista_fincas(comprador_id, cosechas):
+    st.subheader("🏡 Fincas")
+    st.write("Selecciona una finca para ver todos sus productos.")
+
     fincas = _agrupar_fincas(cosechas)
 
     if not fincas:
@@ -293,57 +534,102 @@ def _vista_fincas(comprador_id):
     _fila_finca(elegida, fincas[elegida], comprador_id)
 
 
+# ----------------------------------------------------------------------
+# Mis pedidos
+# ----------------------------------------------------------------------
 
-def _vista_pedidos(comprador_id):
-    st.subheader("📦 Mis pedidos")
+def _estado_visual(pedido, pedidos_pagados):
+    """Convierte el estado de la BD en el estado que ve el comprador."""
+    estado = pedido["estado"]
 
-    pedidos = listar_pedidos(comprador_id)
+    if estado == "aceptado":
+        return "pagado" if pedido["id"] in pedidos_pagados else "por_pagar"
 
-    if not pedidos:
-        st.info("Aún no tienes pedidos. Elige un producto en Inicio.")
-    else:
-        for pedido in pedidos:
-            with st.container(border=True):
-                col1, col2 = st.columns([3, 1])
+    return estado
 
-                with col1:
-                    st.markdown(f"### Pedido #{pedido['id']}")
-                    st.write(f"**Producto:** {pedido['producto']}")
-                    st.write(f"**Finca:** {pedido['finca']}")
+
+def _insignia(clave_estado):
+    etiqueta, fondo, color = ESTADOS_PEDIDO.get(
+        clave_estado,
+        (str(clave_estado).capitalize(), "#E2E3E5", "#4A4F54"),
+    )
+    return (
+        f'<span class="insignia" style="background:{fondo};color:{color};">'
+        f"{escape(etiqueta)}</span>"
+    )
+
+
+def _dato(etiqueta, valor):
+    return (
+        '<div class="dato">'
+        f'<span class="etiqueta">{escape(etiqueta)}</span>'
+        f'<span class="valor">{escape(str(valor))}</span>'
+        "</div>"
+    )
+
+
+def _tarjeta_pedido(comprador_id, pedido, clave_estado):
+    with st.container(border=True):
+        col_titulo, col_estado = st.columns(
+            [3, 2], vertical_alignment="center"
+        )
+        col_titulo.markdown(f"### 📦 Pedido #{pedido['id']}")
+        col_estado.markdown(
+            f'<div style="text-align:right;">{_insignia(clave_estado)}</div>',
+            unsafe_allow_html=True,
+        )
+
+        fecha = (
+            pedido["creado_en"].strftime("%d/%m/%Y %H:%M")
+            if pedido.get("creado_en")
+            else "—"
+        )
+        st.caption(f"🏡 {pedido['finca']} · 📅 {fecha}")
+
+        d1, d2, d3, d4 = st.columns([2, 1.2, 1.5, 1.5])
+        d1.markdown(_dato("Producto", pedido["producto"]), unsafe_allow_html=True)
+        d2.markdown(
+            _dato("Cantidad", f"{pedido['cantidad']:g} {pedido['unidad']}"),
+            unsafe_allow_html=True,
+        )
+        d3.markdown(
+            _dato("Precio unitario", cop(pedido["precio_unitario"])),
+            unsafe_allow_html=True,
+        )
+        d4.markdown(
+            _dato("Total", cop(pedido["total"])),
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("")
+        col_mensaje, col_accion = st.columns([2, 1], vertical_alignment="center")
+
+        if clave_estado == "pendiente":
+            col_mensaje.caption(
+                "Esperando respuesta del agricultor. "
+                "Puedes cancelar la solicitud mientras siga pendiente."
+            )
+
+            with col_accion:
+                with st.popover("Cancelar pedido", use_container_width=True):
                     st.write(
-                        f"**Cantidad:** "
-                        f"{pedido['cantidad']} {pedido['unidad']}"
+                        f"¿Seguro que deseas cancelar el pedido "
+                        f"#{pedido['id']}?"
                     )
-                    st.write(f"**Total:** {cop(pedido['total'])}")
+                    st.caption("Esta acción no se puede deshacer.")
 
-                with col2:
-                    estado = pedido["estado"]
-
-                    if estado == "aceptado":
-                        st.success("Aceptado")
-                    elif estado == "pendiente":
-                        st.warning("Pendiente")
-                    elif estado == "rechazado":
-                        st.error("Rechazado")
-                    else:
-                        st.info(estado.capitalize())
-
-                if pedido["estado"] == "aceptado":
                     if st.button(
-                        "💳 Pagar pedido",
-                        key=f"comp_pagar_{comprador_id}_{pedido['id']}",
+                        "Sí, cancelar pedido",
+                        key=f"comp_confirmar_cancelar_{comprador_id}_{pedido['id']}",
                         use_container_width=True,
                     ):
                         try:
-                            pago_id = registrar_pago(
-                                comprador_id,
-                                pedido["id"],
-                            )
+                            cancelar_pedido(comprador_id, pedido["id"])
                         except ValueError as error:
                             st.error(str(error))
                         except ErrorMySQL as error:
                             st.error(
-                                f"No se pudo registrar el pago. "
+                                "No se pudo cancelar el pedido. "
                                 f"Código: {error.errno}."
                             )
                         except ConnectionError:
@@ -351,16 +637,100 @@ def _vista_pedidos(comprador_id):
                         else:
                             st.session_state[
                                 f"comp_aviso_{comprador_id}"
-                            ] = (
-                                f"Pago simulado #{pago_id} "
-                                "registrado correctamente."
-                            )
+                            ] = f"Pedido #{pedido['id']} cancelado correctamente."
                             st.rerun()
+
+        elif clave_estado == "por_pagar":
+            col_mensaje.caption(
+                "El agricultor aceptó tu pedido. Ya puedes realizar el pago."
+            )
+
+            with col_accion:
+                if st.button(
+                    "💳 Pagar pedido",
+                    key=f"comp_pagar_{comprador_id}_{pedido['id']}",
+                    use_container_width=True,
+                ):
+                    try:
+                        pago_id = registrar_pago(
+                            comprador_id,
+                            pedido["id"],
+                        )
+                    except ValueError as error:
+                        st.error(str(error))
+                    except ErrorMySQL as error:
+                        st.error(
+                            f"No se pudo registrar el pago. "
+                            f"Código: {error.errno}."
+                        )
+                    except ConnectionError:
+                        st.error("No se pudo conectar con TiDB.")
+                    else:
+                        st.session_state[
+                            f"comp_aviso_{comprador_id}"
+                        ] = (
+                            f"Pago simulado #{pago_id} "
+                            "registrado correctamente."
+                        )
+                        st.rerun()
+
+        elif clave_estado == "pagado":
+            col_mensaje.caption("✅ Pedido pagado. Consulta el detalle en el historial de pagos.")
+
+        elif clave_estado == "rechazado":
+            col_mensaje.caption("El agricultor no pudo atender este pedido.")
+
+        elif clave_estado == "cancelado":
+            col_mensaje.caption("Cancelaste este pedido.")
+
+
+def _vista_pedidos(comprador_id):
+    st.subheader("📦 Mis pedidos")
+    st.write(
+        "Consulta el estado de tus solicitudes, cancela las pendientes "
+        "y paga las que el agricultor aceptó."
+    )
+
+    pedidos = listar_pedidos(comprador_id)
+    pagos = listar_pagos(comprador_id)
+    pedidos_pagados = {pago["pedido_id"] for pago in pagos}
+
+    claves = [_estado_visual(p, pedidos_pagados) for p in pedidos]
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Pendientes", claves.count("pendiente"))
+    m2.metric("Por pagar", claves.count("por_pagar"))
+    m3.metric("Pagados", claves.count("pagado"))
+
+    st.markdown("---")
+
+    if not pedidos:
+        st.info("Aún no tienes pedidos. Elige un producto en Inicio.")
+    else:
+        col_filtro, _ = st.columns([1, 2])
+        filtro = col_filtro.selectbox(
+            "Filtrar por estado",
+            ["Todos"] + [datos[0] for datos in ESTADOS_PEDIDO.values()],
+            key=f"comp_filtro_{comprador_id}",
+        )
+
+        visibles = [
+            (pedido, clave)
+            for pedido, clave in zip(pedidos, claves)
+            if filtro == "Todos"
+            or ESTADOS_PEDIDO.get(clave, (clave,))[0] == filtro
+        ]
+
+        st.caption(f"Mostrando {len(visibles)} de {len(pedidos)} pedidos")
+
+        if not visibles:
+            st.info("No tienes pedidos con ese estado.")
+
+        for pedido, clave in visibles:
+            _tarjeta_pedido(comprador_id, pedido, clave)
 
     st.markdown("---")
     st.subheader("💰 Historial de pagos")
-
-    pagos = listar_pagos(comprador_id)
 
     if not pagos:
         st.info("Todavía no tienes pagos registrados.")
@@ -411,19 +781,48 @@ def ejecutar_modo_comprador():
         st.error("No se pudo cargar el comprador desde TiDB.")
         return
 
-    with st.sidebar:
-        st.markdown("### 🛒 Comprador")
-        st.caption(f"Hola, {usuario}")
-        st.markdown("**Descubrir**")
+    try:
+        cosechas = listar_cosechas(solo_disponibles=True)
+    except (ErrorMySQL, ConnectionError):
+        st.error("No se pudo cargar el catálogo desde TiDB.")
+        return
 
-        vista = st.radio(
-            "Menú",
-            ["🏠 Inicio", "🏡 Fincas", "📦 Mis pedidos"],
-            label_visibility="collapsed",
-            key=f"comp_vista_{comprador_id}",
-        )
+    # ------------------------------------------------------------------
+    # Encabezado (mismo bloque visual del agricultor)
+    # ------------------------------------------------------------------
+    st.markdown(
+        f"""
+        <div style="
+            background:#174B35;
+            padding:28px;
+            border-radius:18px;
+            margin-bottom:20px;
+        ">
+            <div style="color:#D5E8B8;font-size:15px;">
+                AGRITECHGO · COMPRADOR
+            </div>
+            <div style="
+                color:#FFFFFF;
+                font-size:34px;
+                font-weight:750;
+                margin:8px 0;
+            ">
+                AgritechGO
+            </div>
+            <div style="color:#FFFFFF;font-size:17px;">
+                Bienvenido, {escape(usuario)}.
+                Compra alimentos frescos directamente a los
+                agricultores de la región.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    st.title("🛒 Comprar Alimentos del Campo")
+    st.caption(
+        "Tus pedidos se guardan en TiDB Cloud. "
+        "La información se consulta al cargar o actualizar la vista."
+    )
 
     if st.button(
         "🔄 Actualizar información",
@@ -438,10 +837,59 @@ def ejecutar_modo_comprador():
     if mensaje:
         st.success(mensaje)
 
-    if vista == "🏠 Inicio":
-        _vista_inicio(comprador_id)
-    elif vista == "🏡 Fincas":
-        _vista_fincas(comprador_id)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Productos disponibles", len(cosechas))
+    col2.metric("Fincas con cosecha", len(_agrupar_fincas(cosechas)))
+    col3.metric("Intermediarios", 0)
+
+    st.markdown("---")
+
+    # ------------------------------------------------------------------
+    # Menú lateral: logo + botón AgritechGO + navegación
+    # ------------------------------------------------------------------
+    menu_key = f"comp_vista_{comprador_id}"
+
+    # Se ejecuta antes de volver a dibujar el menú.
+    def volver_al_inicio():
+        st.session_state[menu_key] = VISTA_INICIO
+
+    logo_path = Path(__file__).resolve().parent.parent / "logo.png"
+
+    with st.sidebar:
+        col_logo, col_nombre = st.columns(
+            [1, 3],
+            gap="small",
+            vertical_alignment="center",
+        )
+        with col_logo:
+            if logo_path.is_file():
+                st.image(str(logo_path), width=60)
+
+        with col_nombre:
+            st.button(
+                "AgritechGO",
+                key=f"comp_boton_inicio_{comprador_id}",
+                help="Volver a Inicio",
+                on_click=volver_al_inicio,
+                use_container_width=True,
+            )
+
+    vista = st.sidebar.radio(
+        "Navegación:",
+        [VISTA_INICIO, VISTA_FINCAS, VISTA_PEDIDOS],
+        key=menu_key,
+    )
+
+    st.sidebar.markdown("---")
+    st.sidebar.info(AYUDAS_MENU[vista])
+
+    # ------------------------------------------------------------------
+    # Contenido según la sección
+    # ------------------------------------------------------------------
+    if vista == VISTA_INICIO:
+        _vista_inicio(comprador_id, cosechas)
+    elif vista == VISTA_FINCAS:
+        _vista_fincas(comprador_id, cosechas)
     else:
         _vista_pedidos(comprador_id)
 
