@@ -9,6 +9,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# 1. IMPORTAR EL CHATBOT (Como lo dejaste en la raíz, se importa directo)
+from chatbot import renderizar_chatbot
+
 # Importar los módulos de autenticación y modos (incluyendo mostrar_landing)
 from auth.login import (
     mostrar_landing,
@@ -83,6 +86,10 @@ def main():
         else:
             # Fallback por defecto si el rol no coincide
             ejecutar_modo_agricultor()
+
+    # 2. LLAMAR AL CHATBOT GLOBAL (Aparece en toda la app menos en el splash)
+    if pantalla_actual != "splash":
+        renderizar_chatbot()
 
 
 if __name__ == "__main__":
