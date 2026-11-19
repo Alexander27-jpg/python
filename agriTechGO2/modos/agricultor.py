@@ -22,6 +22,7 @@ from database.agricultor_db import (
 )
 import unicodedata
 from database.rendimiento_fijo_db import finalizar_proyecto
+from database.reparto_db import repartido_por_pago
 
 
 def comun_estado_cosecha(cosecha):
@@ -1143,6 +1144,11 @@ def ejecutar_modo_agricultor():
 
             st.markdown("---")
 
+            try:
+                repartos = repartido_por_pago([p["pago_id"] for p in pagos])
+            except (ErrorMySQL, ConnectionError):
+                repartos = {}
+
             for pago in pagos:
 
                 with st.container(border=True):
@@ -1165,6 +1171,14 @@ def ejecutar_modo_agricultor():
                         st.write(f"**Referencia:** {pago['referencia']}")
 
                         st.caption(f"Fecha: {pago['creado_en']}")
+
+                        cedido = repartos.get(pago["pago_id"], 0)
+                        if cedido:
+                            st.caption(
+                                "Destinado a inversionistas: "
+                                + f"${cedido:,.0f}".replace(",", ".")
+                                + " COP"
+                            )
 
                     with col2:
                         st.metric(
@@ -1451,13 +1465,15 @@ def ejecutar_modo_agricultor():
                 proyecto_ventas = st.number_input(
                     "Porcentaje de ventas destinado a inversionistas (%)",
                     min_value=0.0,
-                    max_value=100.0,
+                    max_value=50.0,
                     value=0.0,
                     step=1.0,
                     format="%.2f",
                     help=(
-                        "Condición informativa de la simulación. "
-                        "Todavía no genera repartos ni pagos automáticos."
+                        "Cada vez que un comprador paga un pedido de esta finca, "
+                        "este porcentaje de la venta se reparte entre los "
+                        "inversionistas del proyecto, en proporción a lo que "
+                        "aportó cada uno. Máximo 50 %."
                     ),
                 )
 
