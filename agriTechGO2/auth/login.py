@@ -15,6 +15,18 @@ from auth.chatbot import responder_agribot
 FONDO_PORTAL = "ruta_logo.jpeg"
 
 
+def conectar_o_mostrar_error():
+    """Abre la conexión a TiDB. Si falla, muestra en pantalla la causa REAL
+    (antes se perdía en la terminal) y devuelve None para que la pantalla
+    no se rompa."""
+    try:
+        return obtener_conexion()
+    except Exception as e:
+        st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
+        st.code(str(e))
+        return None
+
+
 def obtener_base64(ruta_archivo):
     """Helper para convertir imágenes locales a base64 de forma segura"""
     if os.path.exists(ruta_archivo):
@@ -584,8 +596,10 @@ def mostrar_login(ruta_logo):
                 st.session_state["pantalla"] = "dashboard"
                 st.rerun()
             else:
-                conexion = obtener_conexion()
+                # Si falla la conexión, la función ya muestra el error real
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None  # se inicializa para que el finally nunca falle
                     try:
                         cursor = conexion.cursor(dictionary=True)
                         cursor.execute(
@@ -615,10 +629,9 @@ def mostrar_login(ruta_logo):
                     except Exception as e:
                         st.error(f"Error al consultar la base de datos: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
-                else:
-                    st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -661,8 +674,9 @@ def mostrar_recuperar_password(ruta_logo):
             if not email_rec.strip():
                 st.error("Ingresa un correo válido.")
             else:
-                conexion = obtener_conexion()
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
                         cursor = conexion.cursor(dictionary=True)
                         cursor.execute(
@@ -689,7 +703,8 @@ def mostrar_recuperar_password(ruta_logo):
                     except Exception as e:
                         st.error(f"Error: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -726,8 +741,9 @@ def mostrar_verificar_otp(ruta_logo):
 
         if submit_otp:
             if ingresado_otp == st.session_state.get("codigo_otp"):
-                conexion = obtener_conexion()
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
                         cursor = conexion.cursor()
                         query = "UPDATE usuarios SET password_hash = %s WHERE correo = %s"
@@ -747,7 +763,8 @@ def mostrar_verificar_otp(ruta_logo):
                     except Exception as e:
                         st.error(f"Error al actualizar: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
             else:
                 st.error("El código de verificación es incorrecto.")
@@ -822,8 +839,9 @@ def mostrar_registro(ruta_logo):
                 st.error("Debes seleccionar al menos un rol en la plataforma.")
             else:
                 roles_str = " - ".join(roles_seleccionados)
-                conexion = obtener_conexion()
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
                         cursor = conexion.cursor(dictionary=True)
                         cursor.execute("SELECT id FROM usuarios WHERE correo = %s", (email_reg.strip().lower(),))
@@ -855,10 +873,9 @@ def mostrar_registro(ruta_logo):
                     except Exception as e:
                         st.error(f"Error al registrar en la base de datos: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
-                else:
-                    st.error("No se pudo establecer conexión con la base de datos.")
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("¿Ya tienes cuenta? Inicia sesión", use_container_width=True):
