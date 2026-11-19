@@ -15,6 +15,11 @@ from database.inversionista_db import (
     mover_wallet,
     invertir,
 )
+from database.reparto_db import (
+    total_rendimientos,
+    porcentajes_por_proyecto,
+    listar_repartos_inversionista,
+)
 
 
 def cop(valor):
@@ -159,6 +164,13 @@ def inv_tab_fincas(usuario_id, datos):
         st.info("No encontramos fincas con esos filtros. Intenta otra búsqueda.")
         return
 
+    # ---- PEGA AQUÍ ----
+    try:
+        porcentajes = porcentajes_por_proyecto([p["id"] for p in datos["proyectos"]])
+    except (ErrorMySQL, ConnectionError):
+        porcentajes = {}
+    # -------------------
+
     for finca in fincas:
         with st.container(border=True, key=f"inv_tarjeta_{finca['id']}"):
             c1, c2 = st.columns([3, 1])
@@ -200,6 +212,14 @@ def inv_tab_fincas(usuario_id, datos):
                 st.write(f"**Proyecto: {proyecto['titulo']}**")
                 st.write(proyecto["descripcion"] or "")
                 st.caption("Proyecto de simulación. No se mueve dinero real.")
+
+
+                pct = porcentajes.get(proyecto["id"])
+                if pct:
+                    st.info(
+                        f"El agricultor destina el {pct:g}% de las ventas de esta finca "
+                        "a los inversionistas de este proyecto, en proporción a lo que aporte cada uno."
+                    )
 
                 m1, m2, m3 = st.columns(3)
                 m1.metric(
@@ -287,6 +307,38 @@ def inv_tab_inversiones(usuario_id, datos):
     met1.metric("Aportes activos", len(activas))
     met2.metric("Aportes cancelados", len(canceladas))
     met3.metric("Total aportado — sin canceladas", cop(total))
+
+    try:
+        rendimientos = total_rendimientos(usuario_id)
+        ventas = listar_repartos_inversionista(usuario_id)
+    except (ErrorMySQL, ConnectionError):
+        rendimientos, ventas = None, []
+
+    st.subheader("💸 Ganancias por ventas")
+    if rendimientos is None:
+        st.caption("No se pudieron consultar las ganancias.")
+    else:
+        st.metric("Total ganado por ventas", cop(rendimientos))
+        if not ventas:
+            st.info(
+                "Aún no has recibido ganancias. Aparecerán cuando un comprador "
+                "pague un producto de una finca donde invertiste."
+            )
+        else:
+            st.dataframe(
+                [
+                    {
+                        "Fecha": v["fecha"],
+                        "Finca": v["finca"],
+                        "Producto": v["producto"],
+                        "Pago": v["pago_id"],
+                        "Ganancia": cop(v["monto"]),
+                    }
+                    for v in ventas
+                ],
+                width="stretch",
+                hide_index=True,
+            )
 
     st.markdown("---")
 

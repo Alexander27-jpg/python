@@ -1,6 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
-
+from database.reparto_db import repartir_pago
 from database.agricultor_db import abrir_bd, texto, numero
 from uuid import uuid4
 
@@ -300,9 +300,9 @@ def registrar_pago(comprador_id, pedido_id):
             (pedido_id, monto, referencia),
         )
 
-        pago_id = cursor.lastrowid
+        pago_id = cursor.lastrowid 
 
-    return pago_id
+    repartir_pago(cursor, pago_id, pedido_id, monto)   
 
 
 def listar_pagos(comprador_id):
