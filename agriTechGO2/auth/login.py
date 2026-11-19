@@ -441,7 +441,7 @@ def mostrar_landing(ruta_logo):
             """
             <div class="negocio-box">
                 <h2 style="color: #ffffff; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                    🌱 Sobre AgriTechGO - Mi Negocio Agro
+                     Sobre AgriTechGO - Mi Negocio Agro
                 </h2>
                 <p style="font-size: 1.05rem; color: #e2e8f0; line-height: 1.6;">
                     <strong>AgriTechGO</strong> es una plataforma tecnológica diseñada para transformar la comercialización agrícola en Colombia, eliminando las cadenas innecesarias de intermediación que reducen la rentabilidad de nuestros campesinos y caficultores.
