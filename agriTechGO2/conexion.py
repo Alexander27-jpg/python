@@ -6,7 +6,7 @@ def obtener_conexion():
             host="gateway01.us-east-1.prod.aws.tidbcloud.com",
             port=4000,
             user="38EaRcZscBwS5ba.root",
-            password="jqPUgbF6P3W24K2h",  # Tu contraseña real de TiDB Cloud
+            password="AxJTDJtfhUwNPG70",  # Tu contraseña real de TiDB Cloud
             database="agritechgo",
             ssl_disabled=False,
             ssl_verify_cert=True
