@@ -7,7 +7,9 @@ def obtener_conexion():
             port=4000,
             user="38EaRcZscBwS5ba.root",
             password="AxJTDJtfhUwNPG70",
-            database="agritechgo"
+            database="agritechgo",
+            ssl_disabled=False,
+            ssl_verify_cert=True
         )
         if conexion.is_connected():
             return conexion
