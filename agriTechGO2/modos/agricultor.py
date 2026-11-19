@@ -17,6 +17,8 @@ from database.agricultor_db import (
     aceptar_pedido,
     rechazar_pedido,
     listar_pagos_agricultor,
+    agregar_finca,
+    listar_fincas,
 )
 import unicodedata
 
@@ -52,16 +54,18 @@ def ejecutar_modo_agricultor():
             return "Agotada"
         return "Disponible" if cosecha["activa"] else "Pausada"
 
-    def agri_validar(finca, producto, cantidad, precio):
+    def agri_validar(producto, cantidad, precio):
         errores = []
-        if not finca.strip():
-            errores.append("Escribe el nombre de la finca o lote.")
+
         if not producto.strip():
             errores.append("Escribe el nombre del producto.")
+
         if cantidad <= 0:
             errores.append("La cantidad debe ser mayor que cero.")
+
         if precio <= 0:
             errores.append("El precio debe ser mayor que cero.")
+
         return errores
 
     agri_usuario = str(st.session_state.get("usuario", "")).strip()
@@ -771,6 +775,11 @@ def ejecutar_modo_agricultor():
     # SECCIÓN 2: REGISTRO DE COSECHA
     elif opcion_menu == "➕ Registrar cosecha":
 
+        # FINCAS REGISTRADAS Y ACTIVAS DEL AGRICULTOR
+        agri_fincas_activas = {
+            finca["id"]: finca for finca in agri_fincas_bd if finca["activa"]
+        }
+
         col_titulo_form, col_titulo_cosechas = st.columns([1.5, 1], gap="large")
 
         with col_titulo_form:
@@ -781,107 +790,153 @@ def ejecutar_modo_agricultor():
             )
 
         with col_titulo_cosechas:
-            st.subheader("🌾 Tus cosechas")
+            st.subheader("🌾 Mis cosechas")
             st.caption("Selecciona una cosecha para consultar sus detalles.")
 
         col_formulario, col_vista = st.columns([1.5, 1], gap="large")
 
         with col_formulario:
-            with st.form(f"agri_registro_{agri_usuario}"):
-                st.markdown("### 🌱 Datos de la nueva cosecha")
-                st.markdown(
-                    '<p class="agri-ui-note">Completa la información del producto que deseas registrar.</p>',
-                    unsafe_allow_html=True,
-                )
-                agri_finca = st.text_input(
-                    "Nombre del lote / finca",
-                    placeholder="Ejemplo: Finca La Esperanza",
-                    max_chars=100,
-                )
-                agri_producto = st.text_input(
-                    "Producto",
-                    placeholder="Ejemplo: Café pergamino, tomate o plátano",
-                    max_chars=80,
+
+            if not agri_fincas_activas:
+                st.warning("Todavía no tienes una finca registrada.")
+                st.info(
+                    "Ve a Mi perfil y registra primero el nombre "
+                    "de tu finca principal. Después podrás "
+                    "registrar tus cosechas."
                 )
 
-                agri_calidad = st.text_input(
-                    "Calidad, variedad o clasificación (opcional)",
-                    value="No aplica",
-                    placeholder="Ejemplo: primera calidad, orgánico, variedad Hass",
-                    max_chars=100,
-                    help="Puedes indicar la clasificación de cualquier producto agrícola.",
-                )
+            else:
+                with st.form(f"agri_registro_{agri_usuario}"):
 
-                agri_unidad = st.selectbox(
-                    "Unidad de venta", ["kg", "arroba", "unidad"]
-                )
-                agri_cantidad = st.number_input(
-                    "Cantidad disponible", min_value=0.0, value=0.0, step=1.0
-                )
-                agri_precio = st.number_input(
-                    "Precio por unidad seleccionada (COP)",
-                    min_value=0,
-                    value=0,
-                    step=100,
-                )
-                agri_fecha = st.date_input("Fecha de cosecha", value=date.today())
-                agri_foto = st.file_uploader(
-                    "Fotografía del producto", type=["png", "jpg", "jpeg", "webp"]
-                )
+                    st.markdown("### 🌱 Datos de la nueva cosecha")
 
-                agri_registrar = st.form_submit_button(
-                    "🌱 Registrar cosecha", use_container_width=True
-                )
+                    st.markdown(
+                        '<p class="agri-ui-note">'
+                        "Completa la información del producto "
+                        "que deseas registrar.</p>",
+                        unsafe_allow_html=True,
+                    )
 
-            if agri_registrar:
-                agri_errores = agri_validar(
-                    agri_finca, agri_producto, agri_cantidad, agri_precio
-                )
-                if agri_errores:
-                    for agri_error in agri_errores:
-                        st.error(agri_error)
-                else:
-                    try:
-                        registrar_cosecha(
-                            agri_usuario_id,
-                            {
-                                "finca": agri_finca,
-                                "producto": agri_producto,
-                                "calidad": agri_calidad,
-                                "unidad": agri_unidad,
-                                "cantidad": agri_cantidad,
-                                "precio": agri_precio,
-                                "fecha": agri_fecha,
-                                "foto": (
-                                    agri_foto.getvalue()
-                                    if agri_foto is not None
-                                    else None
-                                ),
-                            },
-                        )
-                    except ValueError as error:
-                        st.error(str(error))
-                    except (ErrorMySQL, ConnectionError):
-                        st.error("No se pudo registrar la cosecha en TiDB.")
+                    # SELECCIONAR FINCA YA REGISTRADA
+                    agri_finca_id = st.selectbox(
+                        "Finca donde se registra la cosecha",
+                        options=list(agri_fincas_activas.keys()),
+                        format_func=lambda finca_id: (
+                            agri_fincas_activas[finca_id]["nombre"]
+                        ),
+                        key=f"agri_finca_cosecha_{agri_usuario_id}",
+                    )
+
+                    agri_producto = st.text_input(
+                        "Producto",
+                        placeholder="Ejemplo: Café pergamino, tomate o plátano",
+                        max_chars=80,
+                    )
+
+                    agri_calidad = st.text_input(
+                        "Calidad, variedad o clasificación (opcional)",
+                        value="No aplica",
+                        placeholder="Ejemplo: primera calidad, orgánico, variedad Hass",
+                        max_chars=100,
+                        help="Puedes indicar la clasificación de cualquier producto agrícola.",
+                    )
+
+                    agri_unidad = st.selectbox(
+                        "Unidad de venta",
+                        ["kg", "arroba", "unidad"],
+                    )
+
+                    agri_cantidad = st.number_input(
+                        "Cantidad disponible",
+                        min_value=0.0,
+                        value=0.0,
+                        step=1.0,
+                    )
+
+                    agri_precio = st.number_input(
+                        "Precio por unidad seleccionada (COP)",
+                        min_value=0,
+                        value=0,
+                        step=100,
+                    )
+
+                    agri_fecha = st.date_input(
+                        "Fecha de cosecha",
+                        value=date.today(),
+                    )
+
+                    agri_foto = st.file_uploader(
+                        "Fotografía del producto",
+                        type=["png", "jpg", "jpeg", "webp"],
+                    )
+
+                    agri_registrar = st.form_submit_button(
+                        "🌱 Registrar cosecha",
+                        use_container_width=True,
+                    )
+
+                if agri_registrar:
+
+                    agri_errores = agri_validar(
+                        agri_producto,
+                        agri_cantidad,
+                        agri_precio,
+                    )
+
+                    if agri_errores:
+                        for agri_error in agri_errores:
+                            st.error(agri_error)
+
                     else:
-                        st.session_state[agri_aviso_key] = (
-                            "Finca y cosecha guardadas en TiDB Cloud."
-                        )
-                        st.rerun()
+                        try:
+                            registrar_cosecha(
+                                agri_usuario_id,
+                                {
+                                    "finca_id": agri_finca_id,
+                                    "producto": agri_producto,
+                                    "calidad": agri_calidad,
+                                    "unidad": agri_unidad,
+                                    "cantidad": agri_cantidad,
+                                    "precio": agri_precio,
+                                    "fecha": agri_fecha,
+                                    "foto": (
+                                        agri_foto.getvalue()
+                                        if agri_foto is not None
+                                        else None
+                                    ),
+                                },
+                            )
 
+                        except ValueError as error:
+                            st.error(str(error))
+
+                        except (ErrorMySQL, ConnectionError):
+                            st.error("No se pudo registrar la cosecha en TiDB.")
+
+                        else:
+                            st.session_state[agri_aviso_key] = (
+                                "Cosecha registrada correctamente."
+                            )
+                            st.rerun()
+
+        # COLUMNA DERECHA: COSECHAS DEL AGRICULTOR
         with col_vista:
+
             if agri_cosechas:
+
                 for cosecha_resumen in agri_cosechas:
 
                     nombre_producto = cosecha_resumen["producto"]
                     nombre_finca = cosecha_resumen["finca"]
 
                     with st.expander(
-                        f"🌱 {nombre_producto} · 🏡 {nombre_finca}", expanded=False
+                        f"🌱 {nombre_producto} · 🏡 {nombre_finca}",
+                        expanded=False,
                     ):
+
                         st.markdown(f"**Producto:** {nombre_producto}")
 
-                        st.markdown(f"**Finca o lote:** {nombre_finca}")
+                        st.markdown(f"**Finca:** {nombre_finca}")
 
                         st.markdown(
                             f"**Calidad o clasificación:** "
@@ -915,11 +970,11 @@ def ejecutar_modo_agricultor():
                         else:
                             st.caption("📷 Esta cosecha no tiene fotografía.")
 
-                else:
-                    st.info(
-                        "Todavía no tienes cosechas registradas. "
-                        "Cuando guardes tu primera cosecha aparecerá aquí."
-                    )
+            else:
+                st.info(
+                    "Todavía no tienes cosechas registradas. "
+                    "Cuando guardes tu primera cosecha aparecerá aquí."
+                )
 
     # SECCIÓN 3: PEDIDOS
     elif opcion_menu == "📦 Pedidos":
@@ -1202,6 +1257,124 @@ def ejecutar_modo_agricultor():
                 else:
                     st.session_state[agri_aviso_key] = (
                         "Perfil y finca principal guardados en TiDB."
+                    )
+                    st.rerun()
+
+        # APARTADO: FINCAS REGISTRADAS
+
+        st.markdown("---")
+        st.subheader("🏡 Mis fincas registradas")
+
+        st.caption(f"Fincas asociadas al perfil de {agri_perfil['nombre']}.")
+
+        try:
+            agri_fincas_perfil = listar_fincas(agri_usuario_id)
+
+        except (ErrorMySQL, ConnectionError):
+            st.error("No se pudieron consultar tus fincas.")
+            agri_fincas_perfil = []
+
+        if agri_fincas_perfil:
+
+            for indice, finca_registrada in enumerate(agri_fincas_perfil):
+
+                with st.container(border=True):
+
+                    col_nombre_finca, col_estado_finca = st.columns([3, 1])
+
+                    with col_nombre_finca:
+                        st.markdown(f"**🏡 {finca_registrada['nombre']}**")
+
+                        st.caption(
+                            f"Municipio: "
+                            f"{finca_registrada['municipio'] or 'No registrado'}"
+                        )
+
+                        st.caption(
+                            f"Vereda: "
+                            f"{finca_registrada['vereda'] or 'No registrada'}"
+                        )
+
+                    with col_estado_finca:
+
+                        if indice == 0:
+                            st.success("Principal")
+                        else:
+                            st.info("Adicional")
+
+                        if finca_registrada["activa"]:
+                            st.caption("Activa")
+                        else:
+                            st.caption("Inactiva")
+
+        else:
+            st.info(
+                "Todavía no tienes fincas registradas. "
+                "Guarda primero tu perfil y registra tu finca principal."
+            )
+
+        # FORMULARIO PARA AGREGAR OTRA FINCA
+
+        if agri_perfil["finca_principal"].strip():
+
+            with st.form(f"agri_agregar_finca_{agri_usuario_id}"):
+
+                st.markdown("### ➕ Agregar otra finca")
+
+                st.write("Puedes asociar otra finca a tu mismo perfil de agricultor.")
+
+                agri_nueva_finca = st.text_input(
+                    "Nombre de la nueva finca *",
+                    placeholder="Ejemplo: Finca El Recuerdo",
+                    max_chars=100,
+                )
+
+                agri_municipio_nueva = st.text_input(
+                    "Municipio *",
+                    value=agri_perfil["municipio"],
+                    max_chars=80,
+                )
+
+                agri_vereda_nueva = st.text_input(
+                    "Vereda o sector",
+                    value=agri_perfil["vereda"],
+                    max_chars=100,
+                )
+
+                agri_guardar_nueva_finca = st.form_submit_button(
+                    "➕ Registrar nueva finca",
+                    use_container_width=True,
+                )
+
+            if agri_guardar_nueva_finca:
+
+                try:
+                    agregar_finca(
+                        agri_usuario_id,
+                        {
+                            "nombre": agri_nueva_finca,
+                            "municipio": agri_municipio_nueva,
+                            "vereda": agri_vereda_nueva,
+                        },
+                    )
+
+                except ValueError as error:
+                    st.error(str(error))
+
+                except ErrorMySQL as error:
+                    if error.errno == 1062:
+                        st.error("Ya tienes una finca registrada con ese nombre.")
+                    else:
+                        st.error(
+                            f"No se pudo registrar la finca. " f"Código: {error.errno}."
+                        )
+
+                except ConnectionError:
+                    st.error("No se pudo conectar con TiDB.")
+
+                else:
+                    st.session_state[agri_aviso_key] = (
+                        "La nueva finca se registró correctamente."
                     )
                     st.rerun()
 
