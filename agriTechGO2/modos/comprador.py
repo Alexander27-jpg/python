@@ -1,5 +1,6 @@
 import streamlit as st
 import unicodedata
+import base64
 from decimal import Decimal, ROUND_HALF_UP
 from html import escape
 from pathlib import Path
@@ -12,8 +13,9 @@ from database.comprador_db import (
     listar_pedidos,
     cancelar_pedido,
     registrar_pago,
-    listar_pagos
+    listar_pagos,
 )
+
 
 # ----------------------------------------------------------------------
 # Utilidades comunes
@@ -295,6 +297,7 @@ div[class*="st-key-carrusel_"] [data-testid="stImage"] img {
 # Componentes visuales
 # ----------------------------------------------------------------------
 
+
 def _solicitar_pedido(comprador_id, cosecha_id, precio, unidad, clave):
     """
     Callback del botón "Solicitar compra".
@@ -355,10 +358,7 @@ def _tarjeta_producto(cosecha, comprador_id):
             )
 
         st.markdown(f"**{cosecha['producto']}**")
-        st.caption(
-            f"{cop(precio)} por {unidad} · "
-            f"{disponible:g} {unidad} disp."
-        )
+        st.caption(f"{cop(precio)} por {unidad} · " f"{disponible:g} {unidad} disp.")
         st.caption(f"⭐ {cosecha['calidad']}")
 
         # Resultado de la última solicitud de esta tarjeta (si existe)
@@ -376,9 +376,9 @@ def _tarjeta_producto(cosecha, comprador_id):
                 key=f"comp_cantidad_{clave}",
             )
 
-            total = (
-                Decimal(str(cantidad)) * precio
-            ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            total = (Decimal(str(cantidad)) * precio).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            )
 
             st.markdown(f"**Total:** {cop(total)}")
             st.caption(
@@ -404,25 +404,23 @@ def _tarjeta_producto(cosecha, comprador_id):
                     st.error(texto_mensaje)
 
 
-
 def _banner_finca(nombre, lotes):
-    productos = ", ".join(
-        sorted({lote["producto"] for lote in lotes})
+    productos = ", ".join(sorted({lote["producto"] for lote in lotes}))
+
+    ubicacion = (
+        " · ".join(
+            parte
+            for parte in (
+                lotes[0].get("municipio"),
+                lotes[0].get("vereda"),
+            )
+            if parte
+        )
+        or "Ubicación sin registrar"
     )
 
-    ubicacion = " · ".join(
-        parte
-        for parte in (
-            lotes[0].get("municipio"),
-            lotes[0].get("vereda"),
-        )
-        if parte
-    ) or "Ubicación sin registrar"
-
     pista = (
-        '<p class="hint">Desliza para ver más productos ➜</p>'
-        if len(lotes) > 1
-        else ""
+        '<p class="hint">Desliza para ver más productos ➜</p>' if len(lotes) > 1 else ""
     )
 
     st.markdown(
@@ -441,9 +439,7 @@ def _banner_finca(nombre, lotes):
 def _fila_finca(finca_id, lotes, comprador_id):
     _banner_finca(lotes[0]["finca"], lotes)
 
-    with st.container(
-        key=f"carrusel_{comprador_id}_{finca_id}"
-    ):
+    with st.container(key=f"carrusel_{comprador_id}_{finca_id}"):
         columnas = st.columns(len(lotes))
 
         for columna, lote in zip(columnas, lotes):
@@ -465,6 +461,7 @@ def _agrupar_fincas(cosechas):
 # ----------------------------------------------------------------------
 # Vistas
 # ----------------------------------------------------------------------
+
 
 def _barra_busqueda(comprador_id):
     _, centro, _ = st.columns([1, 3, 1])
@@ -503,9 +500,7 @@ def _vista_inicio(comprador_id, cosechas):
         ]
 
     if not cosechas:
-        st.info(
-            "No hay cosechas disponibles que coincidan en este momento."
-        )
+        st.info("No hay cosechas disponibles que coincidan en este momento.")
         return
 
     for finca_id, lotes in _agrupar_fincas(cosechas).items():
@@ -537,6 +532,7 @@ def _vista_fincas(comprador_id, cosechas):
 # ----------------------------------------------------------------------
 # Mis pedidos
 # ----------------------------------------------------------------------
+
 
 def _estado_visual(pedido, pedidos_pagados):
     """Convierte el estado de la BD en el estado que ve el comprador."""
@@ -570,9 +566,7 @@ def _dato(etiqueta, valor):
 
 def _tarjeta_pedido(comprador_id, pedido, clave_estado):
     with st.container(border=True):
-        col_titulo, col_estado = st.columns(
-            [3, 2], vertical_alignment="center"
-        )
+        col_titulo, col_estado = st.columns([3, 2], vertical_alignment="center")
         col_titulo.markdown(f"### 📦 Pedido #{pedido['id']}")
         col_estado.markdown(
             f'<div style="text-align:right;">{_insignia(clave_estado)}</div>',
@@ -613,8 +607,7 @@ def _tarjeta_pedido(comprador_id, pedido, clave_estado):
             with col_accion:
                 with st.popover("Cancelar pedido", use_container_width=True):
                     st.write(
-                        f"¿Seguro que deseas cancelar el pedido "
-                        f"#{pedido['id']}?"
+                        f"¿Seguro que deseas cancelar el pedido " f"#{pedido['id']}?"
                     )
                     st.caption("Esta acción no se puede deshacer.")
 
@@ -635,9 +628,9 @@ def _tarjeta_pedido(comprador_id, pedido, clave_estado):
                         except ConnectionError:
                             st.error("No se pudo conectar con TiDB.")
                         else:
-                            st.session_state[
-                                f"comp_aviso_{comprador_id}"
-                            ] = f"Pedido #{pedido['id']} cancelado correctamente."
+                            st.session_state[f"comp_aviso_{comprador_id}"] = (
+                                f"Pedido #{pedido['id']} cancelado correctamente."
+                            )
                             st.rerun()
 
         elif clave_estado == "por_pagar":
@@ -660,22 +653,20 @@ def _tarjeta_pedido(comprador_id, pedido, clave_estado):
                         st.error(str(error))
                     except ErrorMySQL as error:
                         st.error(
-                            f"No se pudo registrar el pago. "
-                            f"Código: {error.errno}."
+                            f"No se pudo registrar el pago. " f"Código: {error.errno}."
                         )
                     except ConnectionError:
                         st.error("No se pudo conectar con TiDB.")
                     else:
-                        st.session_state[
-                            f"comp_aviso_{comprador_id}"
-                        ] = (
-                            f"Pago simulado #{pago_id} "
-                            "registrado correctamente."
+                        st.session_state[f"comp_aviso_{comprador_id}"] = (
+                            f"Pago simulado #{pago_id} " "registrado correctamente."
                         )
                         st.rerun()
 
         elif clave_estado == "pagado":
-            col_mensaje.caption("✅ Pedido pagado. Consulta el detalle en el historial de pagos.")
+            col_mensaje.caption(
+                "✅ Pedido pagado. Consulta el detalle en el historial de pagos."
+            )
 
         elif clave_estado == "rechazado":
             col_mensaje.caption("El agricultor no pudo atender este pedido.")
@@ -717,8 +708,7 @@ def _vista_pedidos(comprador_id):
         visibles = [
             (pedido, clave)
             for pedido, clave in zip(pedidos, claves)
-            if filtro == "Todos"
-            or ESTADOS_PEDIDO.get(clave, (clave,))[0] == filtro
+            if filtro == "Todos" or ESTADOS_PEDIDO.get(clave, (clave,))[0] == filtro
         ]
 
         st.caption(f"Mostrando {len(visibles)} de {len(pedidos)} pedidos")
@@ -739,16 +729,18 @@ def _vista_pedidos(comprador_id):
     filas = []
 
     for pago in pagos:
-        filas.append({
-            "Pago": pago["pago_id"],
-            "Pedido": pago["pedido_id"],
-            "Producto": pago["producto"],
-            "Finca": pago["finca"],
-            "Monto": cop(pago["monto"]),
-            "Referencia": pago["referencia"],
-            "Estado": pago["estado"].capitalize(),
-            "Tipo": "Simulado" if pago["es_simulado"] else "Real",
-        })
+        filas.append(
+            {
+                "Pago": pago["pago_id"],
+                "Pedido": pago["pedido_id"],
+                "Producto": pago["producto"],
+                "Finca": pago["finca"],
+                "Monto": cop(pago["monto"]),
+                "Referencia": pago["referencia"],
+                "Estado": pago["estado"].capitalize(),
+                "Tipo": "Simulado" if pago["es_simulado"] else "Real",
+            }
+        )
 
     st.dataframe(
         filas,
@@ -757,10 +749,10 @@ def _vista_pedidos(comprador_id):
     )
 
 
-
 # ----------------------------------------------------------------------
 # Punto de entrada
 # ----------------------------------------------------------------------
+
 
 def ejecutar_modo_comprador():
 
@@ -845,34 +837,64 @@ def ejecutar_modo_comprador():
     st.markdown("---")
 
     # ------------------------------------------------------------------
-    # Menú lateral: logo + botón AgritechGO + navegación
+    # Menú lateral: logo centrado y clicable
     # ------------------------------------------------------------------
     menu_key = f"comp_vista_{comprador_id}"
 
-    # Se ejecuta antes de volver a dibujar el menú.
+    # Al presionar el logo, volver a Inicio.
     def volver_al_inicio():
         st.session_state[menu_key] = VISTA_INICIO
 
     logo_path = Path(__file__).resolve().parent.parent / "logo.png"
 
     with st.sidebar:
-        col_logo, col_nombre = st.columns(
-            [1, 3],
-            gap="small",
-            vertical_alignment="center",
-        )
-        with col_logo:
-            if logo_path.is_file():
-                st.image(str(logo_path), width=60)
+        if logo_path.is_file():
+            logo_base64 = base64.b64encode(logo_path.read_bytes()).decode("utf-8")
 
-        with col_nombre:
-            st.button(
-                "AgritechGO",
-                key=f"comp_boton_inicio_{comprador_id}",
-                help="Volver a Inicio",
-                on_click=volver_al_inicio,
-                use_container_width=True,
+            st.markdown(
+                f"""
+                <style>
+                [class*="st-key-comp_logo_inicio_"] button {{
+                    width: 130px !important;
+                    height: 130px !important;
+                    min-height: 130px !important;
+                    background-color: transparent !important;
+                    background-image: url(
+                        "data:image/png;base64,{logo_base64}"
+                    ) !important;
+                    background-repeat: no-repeat !important;
+                    background-position: center !important;
+                    background-size: contain !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                }}
+
+                [class*="st-key-comp_logo_inicio_"] button p {{
+                    color: transparent !important;
+                    font-size: 0 !important;
+                }}
+
+                [class*="st-key-comp_logo_inicio_"] button:hover {{
+                    background-color: rgba(23,75,53,0.08) !important;
+                    border-radius: 14px !important;
+                }}
+                </style>
+                """,
+                unsafe_allow_html=True,
             )
+
+            col_izquierda, col_centro, col_derecha = st.columns([1, 2, 1])
+
+            with col_centro:
+                st.button(
+                    " ",
+                    key=f"comp_logo_inicio_{comprador_id}",
+                    help="Volver a Inicio",
+                    on_click=volver_al_inicio,
+                )
+        else:
+            st.warning("No se encontró el archivo logo.png")
 
     vista = st.sidebar.radio(
         "Navegación:",
@@ -902,27 +924,59 @@ if __name__ == "__main__":
         st.session_state.agri_datos = {
             "agricultor_juan": {
                 "cosechas": [
-                    {"id": "1", "producto": "Café Especial Caturra", "finca": "Finca Juan",
-                     "precio": 85000, "unidad": "kg", "cantidad": 50,
-                     "calidad": "Premium", "activa": True, "foto": None},
-                    {"id": "2", "producto": "Pollo", "finca": "Finca Juan",
-                     "precio": 12000, "unidad": "kg", "cantidad": 30,
-                     "calidad": "Fresco", "activa": True, "foto": None},
+                    {
+                        "id": "1",
+                        "producto": "Café Especial Caturra",
+                        "finca": "Finca Juan",
+                        "precio": 85000,
+                        "unidad": "kg",
+                        "cantidad": 50,
+                        "calidad": "Premium",
+                        "activa": True,
+                        "foto": None,
+                    },
+                    {
+                        "id": "2",
+                        "producto": "Pollo",
+                        "finca": "Finca Juan",
+                        "precio": 12000,
+                        "unidad": "kg",
+                        "cantidad": 30,
+                        "calidad": "Fresco",
+                        "activa": True,
+                        "foto": None,
+                    },
                 ]
             },
             "agricultor_andres": {
                 "cosechas": [
-                    {"id": "3", "producto": "Arroz", "finca": "Finca Andrés",
-                     "precio": 4500, "unidad": "kg", "cantidad": 200,
-                     "calidad": "Estándar", "activa": True, "foto": None},
-                    {"id": "4", "producto": "Maíz", "finca": "Finca Andrés",
-                     "precio": 3000, "unidad": "kg", "cantidad": 120,
-                     "calidad": "Estándar", "activa": True, "foto": None},
+                    {
+                        "id": "3",
+                        "producto": "Arroz",
+                        "finca": "Finca Andrés",
+                        "precio": 4500,
+                        "unidad": "kg",
+                        "cantidad": 200,
+                        "calidad": "Estándar",
+                        "activa": True,
+                        "foto": None,
+                    },
+                    {
+                        "id": "4",
+                        "producto": "Maíz",
+                        "finca": "Finca Andrés",
+                        "precio": 3000,
+                        "unidad": "kg",
+                        "cantidad": 120,
+                        "calidad": "Estándar",
+                        "activa": True,
+                        "foto": None,
+                    },
                 ]
             },
         }
 
-    ejecutar_modo_comprador() 
-    
+    ejecutar_modo_comprador()
+
 # Para probar solo esta parte:  py -m streamlit run modos/comprador.py
 # Para probar todo el proyecto: py -m streamlit run main.py

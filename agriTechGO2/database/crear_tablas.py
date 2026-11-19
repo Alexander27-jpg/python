@@ -204,7 +204,8 @@ TABLAS = [
                 'recarga',
                 'retiro',
                 'inversion',
-                'devolucion'
+                'devolucion',
+                'rendimiento'
             ) NOT NULL,
             monto DECIMAL(14,2) NOT NULL,
             detalle VARCHAR(255) NOT NULL,
@@ -214,6 +215,30 @@ TABLAS = [
                 REFERENCES wallets(usuario_id),
             FOREIGN KEY (inversion_id)
                 REFERENCES inversiones(id)
+        )
+        """
+    ),
+    (
+        "repartos_inversionistas",
+        """
+        CREATE TABLE IF NOT EXISTS repartos_inversionistas (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            pago_id INT NOT NULL,
+            proyecto_id INT NOT NULL,
+            inversionista_id INT NOT NULL,
+            monto DECIMAL(14,2) NOT NULL,
+            creado_en TIMESTAMP NOT NULL
+                DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_reparto (
+                pago_id, proyecto_id, inversionista_id
+            ),
+            KEY idx_reparto_inversionista (inversionista_id),
+            FOREIGN KEY (pago_id)
+                REFERENCES pagos(id),
+            FOREIGN KEY (proyecto_id)
+                REFERENCES proyectos(id),
+            FOREIGN KEY (inversionista_id)
+                REFERENCES usuarios(id)
         )
         """
     ),
@@ -302,6 +327,21 @@ def crear_tablas():
             etapa = f"crear o comprobar {nombre}"
             cursor.execute(sentencia)
             print(f"OK: tabla {nombre} disponible.")
+
+        # Si la tabla ya existia, CREATE TABLE IF NOT EXISTS no cambia el ENUM.
+        # Esta sentencia es segura de repetir y agrega 'rendimiento'.
+        etapa = "agregar el tipo 'rendimiento' a los movimientos"
+        cursor.execute("""
+            ALTER TABLE movimientos_wallet
+            MODIFY COLUMN tipo ENUM(
+                'recarga',
+                'retiro',
+                'inversion',
+                'devolucion',
+                'rendimiento'
+            ) NOT NULL
+        """)
+        print("OK: movimientos_wallet acepta 'rendimiento'.")
 
         etapa = "comprobar el resultado"
         cursor.execute("SHOW TABLES")
