@@ -21,6 +21,7 @@ from database.agricultor_db import (
     listar_fincas,
 )
 import unicodedata
+from database.rendimiento_fijo_db import finalizar_proyecto
 
 
 def comun_estado_cosecha(cosecha):
@@ -1570,5 +1571,36 @@ def ejecutar_modo_agricultor():
                         text=f"Financiación: {progreso * 100:.1f}%",
                     )
 
+                    if proyecto["estado"] == "financiado":
 
-##
+                        st.info(
+                            "Proyecto financiado. Cuando haya "
+                            "finalizado su ejecución, puedes "
+                            "liquidar la rentabilidad de los inversionistas."
+                        )
+
+                        confirmar = st.checkbox(
+                            "Confirmo que el proyecto terminó "
+                            "y autorizo su liquidación simulada.",
+                            key=f"confirmar_fin_{proyecto['id']}",
+                        )
+
+                        if st.button(
+                            "Finalizar proyecto y pagar ganancias",
+                            key=f"finalizar_{proyecto['id']}",
+                            disabled=not confirmar,
+                        ):
+                            try:
+                                total = finalizar_proyecto(
+                                    agri_usuario_id,
+                                    proyecto["id"],
+                                )
+                            except (ValueError, ErrorMySQL, ConnectionError) as error:
+                                st.error(str(error))
+                            else:
+                                st.session_state[agri_aviso_key] = (
+                                    "Proyecto finalizado. "
+                                    f"Ganancias acreditadas: "
+                                    f"{agri_pesos(total)}"
+                                )
+                                st.rerun()

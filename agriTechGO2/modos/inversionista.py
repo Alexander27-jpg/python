@@ -15,10 +15,11 @@ from database.inversionista_db import (
     mover_wallet,
     invertir,
 )
-from database.reparto_db import (
-    total_rendimientos,
-    porcentajes_por_proyecto,
-    listar_repartos_inversionista,
+from decimal import Decimal, ROUND_HALF_UP
+
+from database.rendimiento_fijo_db import (
+    calcular_ganancia,
+    listar_ganancias_inversionista,
 )
 
 
@@ -149,7 +150,8 @@ def inv_tab_fincas(usuario_id, datos):
     texto = inv_normalizar(busqueda)
 
     fincas = [
-        finca for finca in datos["fincas"]
+        finca
+        for finca in datos["fincas"]
         if (filtro == "Todas" or finca["id"] in datos["siguiendo"])
         and (
             not texto
@@ -164,21 +166,14 @@ def inv_tab_fincas(usuario_id, datos):
         st.info("No encontramos fincas con esos filtros. Intenta otra búsqueda.")
         return
 
-    # ---- PEGA AQUÍ ----
-    try:
-        porcentajes = porcentajes_por_proyecto([p["id"] for p in datos["proyectos"]])
-    except (ErrorMySQL, ConnectionError):
-        porcentajes = {}
-    # -------------------
-
+    porcentajes = {p["id"]: p["rentabilidad_estimada"] for p in datos["proyectos"]}
     for finca in fincas:
         with st.container(border=True, key=f"inv_tarjeta_{finca['id']}"):
             c1, c2 = st.columns([3, 1])
             c1.subheader(finca["nombre"])
 
             ubicacion = " · ".join(
-                parte for parte in (finca["municipio"], finca["vereda"])
-                if parte
+                parte for parte in (finca["municipio"], finca["vereda"]) if parte
             )
             c1.caption(
                 f"Productor: {finca['agricultor']} | "
@@ -200,7 +195,8 @@ def inv_tab_fincas(usuario_id, datos):
                 )
 
             proyectos = [
-                proyecto for proyecto in datos["proyectos"]
+                proyecto
+                for proyecto in datos["proyectos"]
                 if proyecto["finca_id"] == finca["id"]
             ]
 
@@ -212,7 +208,6 @@ def inv_tab_fincas(usuario_id, datos):
                 st.write(f"**Proyecto: {proyecto['titulo']}**")
                 st.write(proyecto["descripcion"] or "")
                 st.caption("Proyecto de simulación. No se mueve dinero real.")
-
 
                 pct = porcentajes.get(proyecto["id"])
                 if pct:
@@ -243,9 +238,7 @@ def inv_tab_fincas(usuario_id, datos):
                     st.caption(f"Estado: {proyecto['estado']}")
                     continue
 
-                with st.form(
-                    f"inv_aporte_{usuario_id}_{proyecto['id']}"
-                ):
+                with st.form(f"inv_aporte_{usuario_id}_{proyecto['id']}"):
                     monto = st.number_input(
                         "Monto a invertir (COP)",
                         min_value=0.0,
@@ -309,32 +302,64 @@ def inv_tab_inversiones(usuario_id, datos):
     met3.metric("Total aportado — sin canceladas", cop(total))
 
     try:
-        rendimientos = total_rendimientos(usuario_id)
-        ventas = listar_repartos_inversionista(usuario_id)
+        ganancias = listar_ganancias_inversionista(usuario_id)
     except (ErrorMySQL, ConnectionError):
-        rendimientos, ventas = None, []
+        ganancias = None
 
-    st.subheader("💸 Ganancias por ventas")
-    if rendimientos is None:
-        st.caption("No se pudieron consultar las ganancias.")
+    st.subheader("💸 Rentabilidad de mis inversiones")
+
+    ganancia_estimada = sum(
+        (
+            calcular_ganancia(
+                i["monto"],
+                i["rentabilidad_estimada"],
+            )
+            for i in inversiones
+            if i["estado"] != "cancelada"
+        ),
+        Decimal("0.00"),
+    )
+
+    col1, col2 = st.columns(2)
+
+    col1.metric(
+        "Rentabilidad total estimada",
+        cop(ganancia_estimada),
+    )
+
+    if ganancias is None:
+        col2.metric("Ganancias acreditadas", "No disponible")
+        st.error("No se pudieron consultar las ganancias.")
+        pagadas = {}
     else:
-        st.metric("Total ganado por ventas", cop(rendimientos))
-        if not ventas:
+        total_pagado = sum(
+            (g["monto"] for g in ganancias),
+            Decimal("0.00"),
+        )
+
+        col2.metric(
+            "Ganancias acreditadas",
+            cop(total_pagado),
+        )
+
+        pagadas = {g["inversion_id"]: g["monto"] for g in ganancias}
+
+        if not ganancias:
             st.info(
-                "Aún no has recibido ganancias. Aparecerán cuando un comprador "
-                "pague un producto de una finca donde invertiste."
+                "Todavía no tienes ganancias acreditadas. "
+                "Se pagarán cuando finalicen los proyectos "
+                "en los que invertiste."
             )
         else:
             st.dataframe(
                 [
                     {
-                        "Fecha": v["fecha"],
-                        "Finca": v["finca"],
-                        "Producto": v["producto"],
-                        "Pago": v["pago_id"],
-                        "Ganancia": cop(v["monto"]),
+                        "Fecha": g["fecha"],
+                        "Proyecto": g["proyecto"],
+                        "Finca": g["finca"],
+                        "Ganancia": cop(g["monto"]),
                     }
-                    for v in ventas
+                    for g in ganancias
                 ],
                 width="stretch",
                 hide_index=True,
@@ -358,6 +383,23 @@ def inv_tab_inversiones(usuario_id, datos):
 
             with col2:
                 st.metric("Valor aportado", cop(inversion["monto"]))
+                ganancia_prevista = calcular_ganancia(
+                    inversion["monto"],
+                    inversion["rentabilidad_estimada"],
+                )
+
+                st.write(f"**Ganancia estimada:** {cop(ganancia_prevista)}")
+
+                if ganancias is not None:
+                    st.write(
+                        "**Ganancia acreditada:** "
+                        + cop(
+                            pagadas.get(
+                                inversion["id"],
+                                Decimal("0.00"),
+                            )
+                        )
+                    )
 
                 if inversion["estado"] == "cancelada":
                     st.error("Cancelada")
@@ -382,9 +424,7 @@ def inv_tab_wallet(usuario_id, datos):
                 step=50000.0,
                 format="%.2f",
             )
-            recargar = st.form_submit_button(
-                "Recargar saldo simulado", width="stretch"
-            )
+            recargar = st.form_submit_button("Recargar saldo simulado", width="stretch")
 
         if recargar:
             ejecutar_accion(
@@ -405,9 +445,7 @@ def inv_tab_wallet(usuario_id, datos):
                 step=50000.0,
                 format="%.2f",
             )
-            retirar = st.form_submit_button(
-                "Retirar saldo simulado", width="stretch"
-            )
+            retirar = st.form_submit_button("Retirar saldo simulado", width="stretch")
 
         if retirar:
             ejecutar_accion(
@@ -493,9 +531,7 @@ def ejecutar_modo_inversionista():
         st.success(inv_aviso)
 
     # MÉTRICAS (con los datos que ya trae TiDB)
-    inv_activas = [
-        i for i in datos["inversiones"] if i["estado"] != "cancelada"
-    ]
+    inv_activas = [i for i in datos["inversiones"] if i["estado"] != "cancelada"]
     inv_total = sum(i["monto"] for i in inv_activas)
     inv_fincas = {i["finca"] for i in inv_activas}
 
