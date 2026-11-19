@@ -93,8 +93,8 @@ def repartir_pago(cursor, pago_id, pedido_id, monto_pago):
     Devuelve el total repartido (Decimal).
     """
     # No repartir dos veces el mismo pago
-    cursor.execute(       
-       "SELECT COUNT(*) AS total FROM repartos_inversionistas WHERE pago_id = %s",
+    cursor.execute(
+        "SELECT COUNT(*) AS total FROM repartos_inversionistas WHERE pago_id = %s",
         (pago_id,),
     )
     if _col(cursor.fetchone(), 0, "total") > 0:
@@ -127,13 +127,18 @@ def repartir_pago(cursor, pago_id, pedido_id, monto_pago):
           AND pr.porcentaje_ventas > 0
           AND iv.estado IN ('activa', 'finalizada')
           AND iv.es_simulada = TRUE
+          AND iv.creado_en <= (
+          SELECT creado_en
+          FROM pagos
+          WHERE id = %s
+    )
         GROUP BY
             pr.id,
             pr.porcentaje_ventas,
             iv.inversionista_id
         ORDER BY pr.id, iv.inversionista_id
         """,
-        (finca_id,),
+        (finca_id, pago_id),
     )
 
     filas = cursor.fetchall()
@@ -217,8 +222,7 @@ def repartido_por_pago(pago_ids):
         )
 
         return {
-            _col(f, 0, "pago_id"): _dec(_col(f, 1, "total"))
-            for f in cursor.fetchall()
+            _col(f, 0, "pago_id"): _dec(_col(f, 1, "total")) for f in cursor.fetchall()
         }
 
 

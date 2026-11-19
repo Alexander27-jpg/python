@@ -1,6 +1,6 @@
 from decimal import Decimal, ROUND_HALF_UP
 from hashlib import sha256
-from database.reparto_db import repartir_pago
+
 from database.agricultor_db import abrir_bd, texto, numero
 from uuid import uuid4
 
@@ -42,9 +42,7 @@ def crear_pedido(
 ):
     """Guarda una solicitud pendiente sin descontar inventario."""
     cantidad = numero(cantidad, 3, "999999999.999")
-    precio_mostrado = numero(
-        precio_mostrado, 2, "999999999999.99"
-    )
+    precio_mostrado = numero(precio_mostrado, 2, "999999999999.99")
 
     with abrir_bd() as (_, cursor):
         cursor.execute("BEGIN PESSIMISTIC")
@@ -80,19 +78,14 @@ def crear_pedido(
         ):
             raise ValueError("La cosecha ya no está disponible.")
 
-        if (
-            cosecha["precio"] != precio_mostrado
-            or cosecha["unidad"] != unidad_mostrada
-        ):
+        if cosecha["precio"] != precio_mostrado or cosecha["unidad"] != unidad_mostrada:
             raise ValueError(
                 "El precio o la unidad cambió. "
                 "Actualiza el catálogo antes de confirmar."
             )
 
         if cantidad > cosecha["cantidad"]:
-            raise ValueError(
-                "La cantidad solicitada supera las existencias actuales."
-            )
+            raise ValueError("La cantidad solicitada supera las existencias actuales.")
 
         # NUEVO: evita solicitudes duplicadas. Suma lo que este comprador
         # ya tiene pendiente de esta cosecha y no deja superar el stock.
@@ -115,10 +108,7 @@ def crear_pedido(
                 "Cancela una solicitud pendiente o reduce la cantidad."
             )
 
-        if (
-            cosecha["unidad"] == "unidad"
-            and cantidad != cantidad.to_integral_value()
-        ):
+        if cosecha["unidad"] == "unidad" and cantidad != cantidad.to_integral_value():
             raise ValueError("Los productos por unidad requieren cantidades enteras.")
 
         total = (cantidad * cosecha["precio"]).quantize(
@@ -201,9 +191,7 @@ def cancelar_pedido(comprador_id, pedido_id):
         pedido = cursor.fetchone()
 
         if pedido is None:
-            raise ValueError(
-                "El pedido no existe o no pertenece a tu cuenta."
-            )
+            raise ValueError("El pedido no existe o no pertenece a tu cuenta.")
 
         if pedido["estado"] != "pendiente":
             raise ValueError(
@@ -221,11 +209,9 @@ def cancelar_pedido(comprador_id, pedido_id):
         )
 
         if cursor.rowcount != 1:
-            raise ValueError(
-                "El pedido cambió de estado. No se pudo cancelar."
-            )
+            raise ValueError("El pedido cambió de estado. No se pudo cancelar.")
 
-    
+
 def registrar_pago(comprador_id, pedido_id):
     """
     Registra un pago simulado y confirmado.
@@ -248,14 +234,10 @@ def registrar_pago(comprador_id, pedido_id):
         pedido = cursor.fetchone()
 
         if pedido is None:
-            raise ValueError(
-                "El pedido no existe o no pertenece a tu cuenta."
-            )
+            raise ValueError("El pedido no existe o no pertenece a tu cuenta.")
 
         if pedido["estado"] != "aceptado":
-            raise ValueError(
-                "Solo puedes pagar pedidos aceptados por el agricultor."
-            )
+            raise ValueError("Solo puedes pagar pedidos aceptados por el agricultor.")
 
         # Evitar pagos duplicados.
         cursor.execute(
@@ -271,14 +253,12 @@ def registrar_pago(comprador_id, pedido_id):
         pago_existente = cursor.fetchone()
 
         if pago_existente:
-            raise ValueError(
-                "Este pedido ya tiene un registro de pago."
-            )
+            raise ValueError("Este pedido ya tiene un registro de pago.")
 
         # Calcular el monto desde los datos almacenados.
-        monto = (
-            pedido["cantidad"] * pedido["precio_unitario"]
-        ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        monto = (pedido["cantidad"] * pedido["precio_unitario"]).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
 
         if monto <= 0:
             raise ValueError("El monto del pago no es válido.")
@@ -300,9 +280,7 @@ def registrar_pago(comprador_id, pedido_id):
             (pedido_id, monto, referencia),
         )
 
-        pago_id = cursor.lastrowid 
-
-    repartir_pago(cursor, pago_id, pedido_id, monto)   
+        pago_id = cursor.lastrowid
 
 
 def listar_pagos(comprador_id):
