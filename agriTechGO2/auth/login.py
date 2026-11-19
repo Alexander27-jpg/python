@@ -42,11 +42,7 @@ def renderizar_logo_centrado(ruta_logo, ancho=120):
 
 def mostrar_splash():
     """Muestra la pantalla de carga inicial con reproducción asegurada"""
-    # Usamos ruta segura basada en la ubicación del archivo actual
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    ruta_video = os.path.join(BASE_DIR, "intro.mp4")
-    
-    video_base64 = obtener_base64(ruta_video)
+    video_base64 = obtener_base64("intro.mp4")
 
     st.markdown(
         f"""
@@ -88,24 +84,21 @@ def mostrar_splash():
             </div>
         </div>
         <script>
-            // Forzar reproducción por si el navegador móvil bloquea el autoplay inicial
-            window.addEventListener('load', function() {{
+            // Forzar reproducción por si el navegador bloquea el autoplay inicial
+            document.addEventListener("DOMContentLoaded", function() {{
                 var vid = document.querySelector(".splash-video");
-                if (vid) {{
-                    vid.play().catch(function(error) {{
-                        console.log("Autoplay bloqueado por el navegador:", error);
-                    }});
-                }}
+                if (vid) {{ vid.play(); }}
             }});
         </script>
     """,
         unsafe_allow_html=True,
     )
     
-    # Tiempo de espera de la animación antes de pasar a la landing
+    # Reducimos un poco el tiempo o dejamos el tiempo exacto que dura tu animación
     time.sleep(3.5)
     st.session_state.pantalla = "landing"
     st.rerun()
+
 
 @st.cache_data(ttl=3600)
 def obtener_precios_publicos_agro():
@@ -441,7 +434,7 @@ def mostrar_landing(ruta_logo):
             """
             <div class="negocio-box">
                 <h2 style="color: #ffffff; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                     Sobre AgriTechGO - Mi Negocio Agro
+                    🌱 Sobre AgriTechGO - Mi Negocio Agro
                 </h2>
                 <p style="font-size: 1.05rem; color: #e2e8f0; line-height: 1.6;">
                     <strong>AgriTechGO</strong> es una plataforma tecnológica diseñada para transformar la comercialización agrícola en Colombia, eliminando las cadenas innecesarias de intermediación que reducen la rentabilidad de nuestros campesinos y caficultores.
