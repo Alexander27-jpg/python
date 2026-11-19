@@ -138,6 +138,21 @@ def listar_fincas(agricultor_id):
         return cursor.fetchall()
 
 
+def listar_fincas_activas(agricultor_id):
+    with abrir_bd() as (_, cursor):
+        cursor.execute(
+            """
+            SELECT id, nombre
+            FROM fincas
+            WHERE agricultor_id = %s
+              AND activa = TRUE
+            ORDER BY id
+            """,
+            (agricultor_id,),
+        )
+        return cursor.fetchall()
+
+
 def leer_perfil(agricultor_id):
     with abrir_bd() as (_, cursor):
         cursor.execute(
@@ -203,8 +218,15 @@ def guardar_perfil(agricultor_id, datos):
                 vereda = %s, descripcion = %s
             """,
             (
-                agricultor_id, telefono, municipio, vereda, descripcion,
-                telefono, municipio, vereda, descripcion,
+                agricultor_id,
+                telefono,
+                municipio,
+                vereda,
+                descripcion,
+                telefono,
+                municipio,
+                vereda,
+                descripcion,
             ),
         )
 
@@ -239,8 +261,65 @@ def guardar_perfil(agricultor_id, datos):
             )
 
 
+def agregar_finca(agricultor_id, datos):
+    nombre = texto(datos["nombre"], 100, obligatorio=True)
+    municipio = texto(datos["municipio"], 80, obligatorio=True)
+    vereda = texto(datos.get("vereda", ""), 100)
+
+    with abrir_bd() as (_, cursor):
+
+        # Verifica que el agricultor exista.
+        cursor.execute(
+            "SELECT id FROM usuarios WHERE id = %s FOR UPDATE",
+            (agricultor_id,),
+        )
+
+        if cursor.fetchone() is None:
+            raise ValueError("No se encontró el productor.")
+
+        # Evita registrar dos fincas con el mismo nombre.
+        cursor.execute(
+            """
+            SELECT id FROM fincas
+            WHERE agricultor_id = %s
+              AND nombre = %s
+            LIMIT 1
+            FOR UPDATE
+            """,
+            (agricultor_id, nombre),
+        )
+
+        if cursor.fetchone():
+            raise ValueError("Ya tienes una finca registrada con ese nombre.")
+
+        # Registra la nueva finca asociada al agricultor.
+        cursor.execute(
+            """
+            INSERT INTO fincas (
+                agricultor_id,
+                nombre,
+                municipio,
+                vereda
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                agricultor_id,
+                nombre,
+                municipio,
+                vereda,
+            ),
+        )
+
+        return cursor.lastrowid
+
+
 def registrar_cosecha(agricultor_id, datos):
-    finca = texto(datos["finca"], 100, True)
+    finca_id = datos.get("finca_id")
+
+    if not finca_id:
+        raise ValueError("Selecciona una finca registrada.")
+
     producto = texto(datos["producto"], 80, True)
     calidad = texto(datos["calidad"], 80, True)
     unidad = datos["unidad"]
@@ -255,30 +334,29 @@ def registrar_cosecha(agricultor_id, datos):
         raise ValueError("Selecciona una fecha válida.")
 
     foto = datos.get("foto")
+
     if foto is not None and len(foto) > 2 * 1024 * 1024:
         raise ValueError("La fotografía debe pesar como máximo 2 MB.")
 
     cosecha_id = uuid4().hex
 
     with abrir_bd() as (_, cursor):
-        # Reutiliza la finca si ese productor ya registró el mismo nombre.
+
         cursor.execute(
             """
-            INSERT INTO fincas (agricultor_id, nombre)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
-            """,
-            (agricultor_id, finca),
-        )
-        cursor.execute(
-            """
-            SELECT id, activa FROM fincas
-            WHERE agricultor_id = %s AND nombre = %s
+            SELECT id, activa
+            FROM fincas
+            WHERE id = %s
+              AND agricultor_id = %s
             FOR UPDATE
             """,
-            (agricultor_id, finca),
+            (finca_id, agricultor_id),
         )
+
         finca_bd = cursor.fetchone()
+
+        if finca_bd is None:
+            raise ValueError("La finca no existe o no pertenece a este agricultor.")
 
         if not finca_bd["activa"]:
             raise ValueError("La finca está desactivada.")
@@ -292,17 +370,22 @@ def registrar_cosecha(agricultor_id, datos):
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)
             """,
             (
-                cosecha_id, finca_bd["id"], producto, calidad,
-                unidad, cantidad, precio, datos["fecha"], foto,
+                cosecha_id,
+                finca_bd["id"],
+                producto,
+                calidad,
+                unidad,
+                cantidad,
+                precio,
+                datos["fecha"],
+                foto,
             ),
         )
 
     return cosecha_id
 
 
-def actualizar_cosecha(
-    agricultor_id, cosecha_id, cantidad, precio, activa
-):
+def actualizar_cosecha(agricultor_id, cosecha_id, cantidad, precio, activa):
     cantidad = numero(cantidad, 3, "999999999.999", permite_cero=True)
     precio = numero(precio, 2, "999999999999.99")
 
@@ -329,6 +412,7 @@ def actualizar_cosecha(
             """,
             (cantidad, precio, bool(activa), cosecha_id),
         )
+
 
 def publicar_proyecto(agricultor_id, finca_id, datos):
     titulo = texto(datos["titulo"], 150, obligatorio=True)
@@ -370,9 +454,7 @@ def publicar_proyecto(agricultor_id, finca_id, datos):
         )
 
         if cursor.fetchone() is None:
-            raise ValueError(
-                "La finca no está activa o no pertenece a este productor."
-            )
+            raise ValueError("La finca no está activa o no pertenece a este productor.")
 
         # Evita repetir accidentalmente el mismo proyecto en la finca.
         cursor.execute(
@@ -443,7 +525,7 @@ def listar_proyectos_productor(agricultor_id):
         )
         return cursor.fetchall()
 
-    
+
 def listar_pedidos_agricultor(agricultor_id):
     """Consulta los pedidos recibidos por las cosechas del agricultor."""
     with abrir_bd() as (_, cursor):
@@ -506,24 +588,16 @@ def aceptar_pedido(agricultor_id, pedido_id):
         pedido = cursor.fetchone()
 
         if not pedido or pedido["agricultor_id"] != agricultor_id:
-            raise ValueError(
-                "El pedido no existe o no pertenece a tus cosechas."
-            )
+            raise ValueError("El pedido no existe o no pertenece a tus cosechas.")
 
         if pedido["estado"] != "pendiente":
-            raise ValueError(
-                "Este pedido ya fue procesado anteriormente."
-            )
+            raise ValueError("Este pedido ya fue procesado anteriormente.")
 
         if not pedido["cosecha_activa"] or not pedido["finca_activa"]:
-            raise ValueError(
-                "La cosecha o la finca ya no están disponibles."
-            )
+            raise ValueError("La cosecha o la finca ya no están disponibles.")
 
         if pedido["cantidad_disponible"] < pedido["cantidad_pedida"]:
-            raise ValueError(
-                "No hay existencias suficientes para aceptar el pedido."
-            )
+            raise ValueError("No hay existencias suficientes para aceptar el pedido.")
 
         cursor.execute(
             """
@@ -539,9 +613,7 @@ def aceptar_pedido(agricultor_id, pedido_id):
         )
 
         if cursor.rowcount != 1:
-            raise ValueError(
-                "No se pudo descontar el inventario. Actualiza los datos."
-            )
+            raise ValueError("No se pudo descontar el inventario. Actualiza los datos.")
 
         cursor.execute(
             """
@@ -553,9 +625,7 @@ def aceptar_pedido(agricultor_id, pedido_id):
         )
 
         if cursor.rowcount != 1:
-            raise ValueError(
-                "El pedido cambió de estado. No se completó la operación."
-            )
+            raise ValueError("El pedido cambió de estado. No se completó la operación.")
 
 
 def rechazar_pedido(agricultor_id, pedido_id):
@@ -578,14 +648,10 @@ def rechazar_pedido(agricultor_id, pedido_id):
         pedido = cursor.fetchone()
 
         if not pedido or pedido["agricultor_id"] != agricultor_id:
-            raise ValueError(
-                "El pedido no existe o no pertenece a tus cosechas."
-            )
+            raise ValueError("El pedido no existe o no pertenece a tus cosechas.")
 
         if pedido["estado"] != "pendiente":
-            raise ValueError(
-                "Este pedido ya fue procesado anteriormente."
-            )
+            raise ValueError("Este pedido ya fue procesado anteriormente.")
 
         cursor.execute(
             """
@@ -597,11 +663,9 @@ def rechazar_pedido(agricultor_id, pedido_id):
         )
 
         if cursor.rowcount != 1:
-            raise ValueError(
-                "No se pudo actualizar el estado del pedido."
-            )
+            raise ValueError("No se pudo actualizar el estado del pedido.")
 
-        
+
 def listar_pagos_agricultor(agricultor_id):
     """Consulta los pagos recibidos por las cosechas del agricultor."""
     with abrir_bd() as (_, cursor):
@@ -631,4 +695,3 @@ def listar_pagos_agricultor(agricultor_id):
             (agricultor_id,),
         )
         return cursor.fetchall()
-
