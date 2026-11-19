@@ -41,7 +41,7 @@ def renderizar_logo_centrado(ruta_logo, ancho=120):
 
 
 def mostrar_splash():
-    """Muestra la pantalla de carga inicial"""
+    """Muestra la pantalla de carga inicial con reproducción asegurada"""
     video_base64 = obtener_base64("intro.mp4")
 
     st.markdown(
@@ -55,7 +55,7 @@ def mostrar_splash():
             }}
             .splash-video {{
                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 100%; height: 100%; object-fit: contain; opacity: 0.8;
+                width: 100%; height: 100%; object-fit: cover; opacity: 0.85;
             }}
             .video-overlay {{
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -73,8 +73,9 @@ def mostrar_splash():
             }}
         </style>
         <div class="splash-container">
-            <video autoplay muted playsinline class="splash-video">
+            <video autoplay muted playsinline loop class="splash-video">
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+                Tu navegador no soporta la reproducción de videos.
             </video>
             <div class="video-overlay"></div>
             <div class="splash-content">
@@ -82,10 +83,19 @@ def mostrar_splash():
                 <div class="splash-subtitle">Cultivando el futuro del agro sin intermediarios...</div>
             </div>
         </div>
+        <script>
+            // Forzar reproducción por si el navegador bloquea el autoplay inicial
+            document.addEventListener("DOMContentLoaded", function() {{
+                var vid = document.querySelector(".splash-video");
+                if (vid) {{ vid.play(); }}
+            }});
+        </script>
     """,
         unsafe_allow_html=True,
     )
-    time.sleep(4.0)
+    
+    # Reducimos un poco el tiempo o dejamos el tiempo exacto que dura tu animación
+    time.sleep(3.5)
     st.session_state.pantalla = "landing"
     st.rerun()
 
