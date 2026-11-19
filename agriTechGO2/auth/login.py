@@ -44,6 +44,7 @@ def mostrar_splash():
     """Muestra la pantalla de carga inicial con reproducción asegurada"""
     video_base64 = obtener_base64("intro.mp4")
 
+
     st.markdown(
         f"""
         <style>
