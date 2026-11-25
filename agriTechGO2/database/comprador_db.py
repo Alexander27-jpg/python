@@ -4,6 +4,8 @@ from hashlib import sha256
 from database.agricultor_db import abrir_bd, texto, numero
 from uuid import uuid4
 
+from database.reparto_db import repartir_pago
+
 
 def iniciar_comprador(usuario):
     """Recupera la identidad del comprador para el login de demostración."""
@@ -281,6 +283,13 @@ def registrar_pago(comprador_id, pedido_id):
         )
 
         pago_id = cursor.lastrowid
+
+        # Reparte a los inversionistas la parte de esta venta que el agricultor
+        # destino a ellos. Va en la MISMA transaccion que el pago: si algo
+        # falla, se deshace todo (incluido el pago).
+        repartir_pago(cursor, pago_id, pedido_id, monto)
+
+    return pago_id
 
 
 def listar_pagos(comprador_id):

@@ -6,12 +6,25 @@ import time
 import requests
 import streamlit as st
 
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from auth.email_sender import enviar_correo_bienvenida
 from conexion import obtener_conexion
-
+from auth.chatbot import responder_agribot
 
 FONDO_PORTAL = "ruta_logo.jpeg"
+
+
+def conectar_o_mostrar_error():
+    """Abre la conexión a TiDB. Si falla, muestra en pantalla la causa REAL
+    (antes se perdía en la terminal) y devuelve None para que la pantalla
+    no se rompa."""
+    try:
+        return obtener_conexion()
+    except Exception as e:
+        st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
+        st.code(str(e))
+        return None
 
 
 def obtener_base64(ruta_archivo):
@@ -40,8 +53,9 @@ def renderizar_logo_centrado(ruta_logo, ancho=120):
 
 
 def mostrar_splash():
-    """Muestra la pantalla de carga inicial"""
+    """Muestra la pantalla de carga inicial con reproducción asegurada"""
     video_base64 = obtener_base64("intro.mp4")
+
 
     st.markdown(
         f"""
@@ -54,7 +68,7 @@ def mostrar_splash():
             }}
             .splash-video {{
                 position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 100%; height: 100%; object-fit: contain; opacity: 0.8;
+                width: 100%; height: 100%; object-fit: cover; opacity: 0.85;
             }}
             .video-overlay {{
                 position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -72,8 +86,9 @@ def mostrar_splash():
             }}
         </style>
         <div class="splash-container">
-            <video autoplay muted playsinline class="splash-video">
+            <video autoplay muted playsinline loop class="splash-video">
                 <source src="data:video/mp4;base64,{video_base64}" type="video/mp4">
+                Tu navegador no soporta la reproducción de videos.
             </video>
             <div class="video-overlay"></div>
             <div class="splash-content">
@@ -81,10 +96,19 @@ def mostrar_splash():
                 <div class="splash-subtitle">Cultivando el futuro del agro sin intermediarios...</div>
             </div>
         </div>
+        <script>
+            // Forzar reproducción por si el navegador bloquea el autoplay inicial
+            document.addEventListener("DOMContentLoaded", function() {{
+                var vid = document.querySelector(".splash-video");
+                if (vid) {{ vid.play(); }}
+            }});
+        </script>
     """,
         unsafe_allow_html=True,
     )
-    time.sleep(4.0)
+    
+    # Reducimos un poco el tiempo o dejamos el tiempo exacto que dura tu animación
+    time.sleep(3.5)
     st.session_state.pantalla = "landing"
     st.rerun()
 
@@ -274,13 +298,15 @@ def mostrar_landing(ruta_logo):
                 margin-top: 3px;
             }}
             .negocio-box {{
-                background: rgba(255, 255, 255, 0.95);
-                color: #1b4332;
+                background: rgba(18, 38, 27, 0.85);
+                backdrop-filter: blur(12px);
+                color: #ffffff;
+                border: 1px solid rgba(82, 183, 136, 0.3);
                 border-radius: 20px;
                 padding: 2.5rem;
                 max-width: 950px;
                 margin: 2rem auto;
-                box-shadow: 0 20px 45px rgba(0,0,0,0.4);
+                box-shadow: 0 20px 45px rgba(0,0,0,0.5);
             }}
         </style>
         """,
@@ -420,30 +446,33 @@ def mostrar_landing(ruta_logo):
         st.markdown(
             """
             <div class="negocio-box">
-                <h2 style="color: #1b4332; font-weight: 900; margin-bottom: 10px;">
-                     Sobre AgriTechGO - Mi Negocio Agro
+                <h2 style="color: #ffffff; font-weight: 900; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    🌱 Sobre AgriTechGO - Mi Negocio Agro
                 </h2>
-                <p style="font-size: 1.05rem; color: #2d3748; line-height: 1.6;">
+                <p style="font-size: 1.05rem; color: #e2e8f0; line-height: 1.6;">
                     <strong>AgriTechGO</strong> es una plataforma tecnológica diseñada para transformar la comercialización agrícola en Colombia, eliminando las cadenas innecesarias de intermediación que reducen la rentabilidad de nuestros campesinos y caficultores.
                 </p>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 25px;">
-                    <div style="background: #f0fdf4; padding: 18px; border-radius: 14px; border-left: 5px solid #2d6a4f;">
-                        <h4 style="color: #1b4332; margin-bottom: 8px;"> Agricultores / Caficultores</h4>
-                        <p style="font-size: 0.9rem; color: #4a5568;">Publican sus cosechas directamente, fijan precios justos basados en el mercado real y gestionan sus lotes sin intermediarios.</p>
+                    <div style="background: rgba(255, 255, 255, 0.07); padding: 18px; border-radius: 14px; border-left: 5px solid #52b788;">
+                        <h4 style="color: #b7e4c7; margin-bottom: 8px;">🌾 Agricultores / Caficultores</h4>
+                        <p style="font-size: 0.9rem; color: #cbd5e1;">Publican sus cosechas directamente, fijan precios justos basados en el mercado real y gestionan sus lotes sin intermediarios.</p>
                     </div>
-                    <div style="background: #f0fdf4; padding: 18px; border-radius: 14px; border-left: 5px solid #52b788;">
-                        <h4 style="color: #1b4332; margin-bottom: 8px;"> Compradores Directos</h4>
-                        <p style="font-size: 0.9rem; color: #4a5568;">Adquieren productos frescos, con trazabilidad garantizada y negociación transparente directamente desde la finca.</p>
+                    <div style="background: rgba(255, 255, 255, 0.07); padding: 18px; border-radius: 14px; border-left: 5px solid #74c69d;">
+                        <h4 style="color: #b7e4c7; margin-bottom: 8px;">🛒 Compradores Directos</h4>
+                        <p style="font-size: 0.9rem; color: #cbd5e1;">Adquieren productos frescos, con trazabilidad garantizada y negociación transparente directamente desde la finca.</p>
                     </div>
-                    <div style="background: #f0fdf4; padding: 18px; border-radius: 14px; border-left: 5px solid #1b4332;">
-                        <h4 style="color: #1b4332; margin-bottom: 8px;"> Inversionistas Agro</h4>
-                        <p style="font-size: 0.9rem; color: #4a5568;">Impulsan proyectos productivos del campo mediante financiamiento colaborativo con retornos claros y medibles.</p>
+                    <div style="background: rgba(255, 255, 255, 0.07); padding: 18px; border-radius: 14px; border-left: 5px solid #95d5b2;">
+                        <h4 style="color: #b7e4c7; margin-bottom: 8px;">📈 Inversionistas Agro</h4>
+                        <p style="font-size: 0.9rem; color: #cbd5e1;">Impulsan proyectos productivos del campo mediante financiamiento colaborativo con retornos claros y medibles.</p>
                     </div>
                 </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
+
+    # Llamado al chatbot flotante en la esquina inferior derecha
+    mostrar_chatbot_flotante()
 
 
 def aplicar_estilos_burbuja():
@@ -567,8 +596,10 @@ def mostrar_login(ruta_logo):
                 st.session_state["pantalla"] = "dashboard"
                 st.rerun()
             else:
-                conexion = obtener_conexion()
+                # Si falla la conexión, la función ya muestra el error real
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None  # se inicializa para que el finally nunca falle
                     try:
                         cursor = conexion.cursor(dictionary=True)
                         cursor.execute(
@@ -598,10 +629,9 @@ def mostrar_login(ruta_logo):
                     except Exception as e:
                         st.error(f"Error al consultar la base de datos: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
-                else:
-                    st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -644,8 +674,9 @@ def mostrar_recuperar_password(ruta_logo):
             if not email_rec.strip():
                 st.error("Ingresa un correo válido.")
             else:
-                conexion = obtener_conexion()
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
                         cursor = conexion.cursor(dictionary=True)
                         cursor.execute(
@@ -672,7 +703,8 @@ def mostrar_recuperar_password(ruta_logo):
                     except Exception as e:
                         st.error(f"Error: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
 
         st.markdown("<br>", unsafe_allow_html=True)
@@ -709,8 +741,9 @@ def mostrar_verificar_otp(ruta_logo):
 
         if submit_otp:
             if ingresado_otp == st.session_state.get("codigo_otp"):
-                conexion = obtener_conexion()
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
                         cursor = conexion.cursor()
                         query = "UPDATE usuarios SET password_hash = %s WHERE correo = %s"
@@ -730,7 +763,8 @@ def mostrar_verificar_otp(ruta_logo):
                     except Exception as e:
                         st.error(f"Error al actualizar: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
             else:
                 st.error("El código de verificación es incorrecto.")
@@ -799,57 +833,157 @@ def mostrar_registro(ruta_logo):
 
             if not nombre_reg.strip() or not email_reg.strip() or not password_reg:
                 st.error("Por favor completa todos los campos obligatorios.")
-            elif not roles_seleccionados:
-                st.error("Debes seleccionar al menos un rol en la plataforma.")
             elif password_reg != confirm_reg:
                 st.error("Las contraseñas no coinciden.")
+            elif not roles_seleccionados:
+                st.error("Debes seleccionar al menos un rol en la plataforma.")
             else:
-                rol_final = ", ".join(roles_seleccionados)
-
-                conexion = obtener_conexion()
+                roles_str = " - ".join(roles_seleccionados)
+                conexion = conectar_o_mostrar_error()
                 if conexion:
+                    cursor = None
                     try:
-                        cursor = conexion.cursor()
-                        query = "INSERT INTO usuarios (nombre, correo, rol, password_hash, activo) VALUES (%s, %s, %s, %s, 1)"
-                        cursor.execute(
-                            query,
-                            (
-                                nombre_reg.strip(),
-                                email_reg.strip(),
-                                rol_final,
-                                password_reg,
-                            ),
-                        )
-                        conexion.commit()
+                        cursor = conexion.cursor(dictionary=True)
+                        cursor.execute("SELECT id FROM usuarios WHERE correo = %s", (email_reg.strip().lower(),))
+                        existe = cursor.fetchone()
 
-                        try:
-                            enviar_correo_bienvenida(
-                                correo_destino=email_reg.strip(),
-                                nombre_usuario=nombre_reg.strip(),
-                                roles_usuario=rol_final,
-                            )
-                        except Exception as mail_err:
-                            print(
-                                f"Advertencia: No se pudo enviar el correo: {mail_err}"
-                            )
+                        if existe:
+                            st.error("Ya existe una cuenta registrada con este correo electrónico.")
+                        else:
+                            query = """
+                                INSERT INTO usuarios (nombre, correo, rol, password_hash, activo) 
+                                VALUES (%s, %s, %s, %s, 1)
+                            """
+                            cursor.execute(query, (nombre_reg.strip(), email_reg.strip().lower(), roles_str, password_reg))
+                            conexion.commit()
+                            
+                            try:
+                                enviar_correo_bienvenida(
+                                    correo_destino=email_reg.strip().lower(),
+                                    nombre_usuario=nombre_reg.strip(),
+                                    roles_usuario=roles_str
+                                )
+                            except Exception:
+                                pass
 
-                        st.success(
-                            "¡Cuenta creada con éxito! Roles guardados: "
-                            f"{rol_final}. Ahora puedes iniciar sesión."
-                        )
-                        st.session_state.pantalla = "login"
-                        st.rerun()
+                            st.success("¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.")
+                            st.session_state["input_email"] = email_reg.strip().lower()
+                            st.session_state.pantalla = "login"
+                            st.rerun()
                     except Exception as e:
-                        st.error(
-                            f"Error al registrar el usuario en la base de datos: {e}"
-                        )
+                        st.error(f"Error al registrar en la base de datos: {e}")
                     finally:
-                        cursor.close()
+                        if cursor is not None:
+                            cursor.close()
                         conexion.close()
-                else:
-                    st.error("No se pudo conectar a la base de datos de TiDB Cloud.")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("¿Ya tienes una cuenta? Ir al Login", use_container_width=True):
+        if st.button("¿Ya tienes cuenta? Inicia sesión", use_container_width=True):
             st.session_state.pantalla = "login"
+            st.rerun()
+
+
+def mostrar_chatbot_flotante():
+    """Renderiza el asistente virtual como una burbuja circular flotante en la esquina inferior derecha"""
+
+    # ----------------------------------------------------------------------
+    # ÚNICO CAMBIO: este bloque de CSS convierte el botón largo en un círculo
+    # ----------------------------------------------------------------------
+    st.markdown("""
+        <style>
+            /* 1) Contenedor: lo fijamos abajo a la derecha y lo reducimos al tamaño del círculo */
+            div[data-testid="stPopover"] {
+                position: fixed !important;
+                bottom: 45px !important;
+                right: 25px !important;
+                width: 64px !important;
+                z-index: 999999 !important;
+            }
+
+            /* 2) Botón: forma circular de 64x64 con el verde de la marca */
+            div[data-testid="stPopover"] button {
+                width: 64px !important;
+                height: 64px !important;
+                min-height: 64px !important;
+                padding: 0 !important;
+                border-radius: 50% !important;
+                background: linear-gradient(135deg, #52b788, #1b4332) !important;
+                border: 2px solid rgba(255, 255, 255, 0.85) !important;
+                box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+            }
+
+            /* 3) Efecto al pasar el mouse: crece un poquito */
+            div[data-testid="stPopover"] button:hover {
+                transform: scale(1.08) !important;
+                box-shadow: 0 8px 22px rgba(82, 183, 136, 0.6) !important;
+            }
+
+            /* 4) Emoji centrado y más grande dentro del círculo */
+            div[data-testid="stPopover"] button p {
+                font-size: 1.9rem !important;
+                margin: 0 !important;
+                line-height: 1 !important;
+            }
+
+            /* 5) Ocultamos la flechita que Streamlit agrega al botón del popover */
+            div[data-testid="stPopover"] button svg,
+            div[data-testid="stPopover"] button [data-testid="stIconMaterial"] {
+                display: none !important;
+            }
+
+            /* 6) Etiqueta "AgriBot" debajo del círculo */
+            div[data-testid="stPopover"]::after {
+                content: "AgriBot";
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                transform: translateX(-50%);
+                margin-top: 5px;
+                padding: 2px 10px;
+                border-radius: 10px;
+                background: rgba(27, 67, 50, 0.92);
+                color: #ffffff;
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.4px;
+                pointer-events: none;
+            }
+
+            /* 7) El panel del chat se mantiene ancho, igual que antes */
+            div[data-testid="stPopoverBody"] {
+                width: 700px !important;
+                max-width: 92vw !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    if "mensajes_agro" not in st.session_state:
+        st.session_state.mensajes_agro = [
+            {"role": "assistant", "content": "¡Hola! Soy AgriBot, tu Asistente Agro. ¿En qué te puedo colaborar hoy con tus cosechas o compras directas? 🌱"}
+        ]
+
+    # Burbuja flotante nativa de Streamlit: ahora solo lleva el emoji (el círculo)
+    with st.popover("🤖", help="Abrir chat de ayuda"):
+        st.markdown("<h4 style='color: #52b788; margin-bottom: 10px; font-size: 1rem;'>🌱 Asistente Virtual AgriTechGO</h4>", unsafe_allow_html=True)
+        
+        chat_container = st.container(height=280)
+        with chat_container:
+            for msg in st.session_state.mensajes_agro:
+                if msg["role"] == "assistant":
+                    st.markdown(f"<div style='background: rgba(82, 183, 136, 0.15); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; color: #e2e8f0; font-size: 0.85rem;'>🤖 {msg['content']}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='background: rgba(255, 255, 255, 0.1); padding: 8px 10px; border-radius: 8px; margin-bottom: 6px; color: #ffffff; text-align: right; font-size: 0.85rem;'>👤 {msg['content']}</div>", unsafe_allow_html=True)
+
+        pregunta_usuario = st.chat_input("Escribe tu duda...", key="input_chat_flotante_st")
+
+        if pregunta_usuario and pregunta_usuario.strip():
+            st.session_state.mensajes_agro.append({"role": "user", "content": pregunta_usuario})
+
+            respuesta = responder_agribot(pregunta_usuario)
+
+            st.session_state.mensajes_agro.append({"role": "assistant", "content": respuesta})
             st.rerun()

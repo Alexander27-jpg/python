@@ -426,10 +426,11 @@ def publicar_proyecto(agricultor_id, finca_id, datos):
         permite_cero=True,
     ) / Decimal("100")
 
+    # Tope: el agricultor no puede ceder mas del 50 % de las ventas.
     porcentaje_ventas = numero(
         datos["porcentaje_ventas"],
         2,
-        "100",
+        "50",
         permite_cero=True,
     ) / Decimal("100")
 

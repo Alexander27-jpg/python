@@ -1,0 +1,8 @@
+streamlit
+requests
+mysql-connector-python
+pandas
+plotly
+Pillow
+resend
+certifi

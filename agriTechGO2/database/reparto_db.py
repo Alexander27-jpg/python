@@ -152,7 +152,8 @@ def repartir_pago(cursor, pago_id, pedido_id, monto_pago):
             proyecto_id,
             {
                 "proyecto_id": proyecto_id,
-                "porcentaje": _col(fila, 1, "porcentaje_ventas"),
+                # En la BD es una fraccion (0.10 = 10 %); el calculo usa porcentaje.
+                "porcentaje": _dec(_col(fila, 1, "porcentaje_ventas")) * 100,
                 "aportes": [],
             },
         )
@@ -227,6 +228,7 @@ def repartido_por_pago(pago_ids):
 
 
 def porcentajes_por_proyecto(proyecto_ids):
+    """Devuelve {proyecto_id: porcentaje} ya en porcentaje (10 = 10 %)."""
     from database.agricultor_db import abrir_bd
 
     proyecto_ids = list(proyecto_ids)
@@ -246,7 +248,7 @@ def porcentajes_por_proyecto(proyecto_ids):
         )
 
         return {
-            _col(f, 0, "id"): _dec(_col(f, 1, "porcentaje_ventas"))
+            _col(f, 0, "id"): _dec(_col(f, 1, "porcentaje_ventas")) * 100
             for f in cursor.fetchall()
         }
 
@@ -290,3 +292,33 @@ def listar_repartos_inversionista(inversionista_id, limite=50):
             }
             for f in cursor.fetchall()
         ]
+
+
+def repartir_pagos_pendientes():
+    """
+    Uso unico (o de recuperacion): reparte los pagos confirmados que se hicieron
+    antes de conectar el reparto. Seguro de repetir: nunca reparte dos veces el
+    mismo pago. Solo cuentan las inversiones hechas antes de cada pago.
+    Devuelve cuantos pagos generaron reparto.
+    """
+    from database.agricultor_db import abrir_bd
+
+    with abrir_bd() as (_, cursor):
+        cursor.execute(
+            """
+            SELECT pa.id, pa.pedido_id, pa.monto
+            FROM pagos pa
+            LEFT JOIN repartos_inversionistas ri ON ri.pago_id = pa.id
+            WHERE ri.id IS NULL AND pa.estado = 'confirmado'
+            ORDER BY pa.id
+            """
+        )
+        pendientes = cursor.fetchall()
+
+    repartidos = 0
+    for pago in pendientes:
+        with abrir_bd() as (_, cursor):
+            cursor.execute("BEGIN PESSIMISTIC")
+            if repartir_pago(cursor, pago["id"], pago["pedido_id"], pago["monto"]) > 0:
+                repartidos += 1
+    return repartidos

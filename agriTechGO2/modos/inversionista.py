@@ -21,6 +21,11 @@ from database.rendimiento_fijo_db import (
     calcular_ganancia,
     listar_ganancias_inversionista,
 )
+from database.reparto_db import (
+    listar_repartos_inversionista,
+    porcentajes_por_proyecto,
+    total_rendimientos,
+)
 
 
 def cop(valor):
@@ -166,7 +171,12 @@ def inv_tab_fincas(usuario_id, datos):
         st.info("No encontramos fincas con esos filtros. Intenta otra búsqueda.")
         return
 
-    porcentajes = {p["id"]: p["rentabilidad_estimada"] for p in datos["proyectos"]}
+    # Porcentaje de ventas que el AGRICULTOR destina a los inversionistas.
+    try:
+        porcentajes = porcentajes_por_proyecto([p["id"] for p in datos["proyectos"]])
+    except (ErrorMySQL, ConnectionError):
+        porcentajes = {}
+
     for finca in fincas:
         with st.container(border=True, key=f"inv_tarjeta_{finca['id']}"):
             c1, c2 = st.columns([3, 1])
@@ -212,7 +222,7 @@ def inv_tab_fincas(usuario_id, datos):
                 pct = porcentajes.get(proyecto["id"])
                 if pct:
                     st.info(
-                        f"El agricultor destina el {pct:g}% de las ventas de esta finca "
+                        f"El agricultor destina el {float(pct):g}% de las ventas de esta finca "
                         "a los inversionistas de este proyecto, en proporción a lo que aporte cada uno."
                     )
 
@@ -306,7 +316,7 @@ def inv_tab_inversiones(usuario_id, datos):
     except (ErrorMySQL, ConnectionError):
         ganancias = None
 
-    st.subheader("💸 Rentabilidad de mis inversiones")
+    st.subheader("💸 Rentabilidad fija (se paga al finalizar el proyecto)")
 
     ganancia_estimada = sum(
         (
@@ -360,6 +370,46 @@ def inv_tab_inversiones(usuario_id, datos):
                         "Ganancia": cop(g["monto"]),
                     }
                     for g in ganancias
+                ],
+                width="stretch",
+                hide_index=True,
+            )
+
+    st.markdown("---")
+    st.subheader("🛒 Participación en ventas")
+    st.caption(
+        "Cada vez que un comprador paga un producto de una finca donde "
+        "invertiste, recibes una parte de esa venta, según el porcentaje "
+        "que definió el agricultor y en proporción a lo que aportaste."
+    )
+
+    try:
+        total_ventas = total_rendimientos(usuario_id)
+        ventas = listar_repartos_inversionista(usuario_id)
+    except (ErrorMySQL, ConnectionError):
+        total_ventas, ventas = None, []
+
+    if total_ventas is None:
+        st.error("No se pudieron consultar las ganancias por ventas.")
+    else:
+        st.metric("Total recibido por ventas", cop(total_ventas))
+
+        if not ventas:
+            st.info(
+                "Aún no has recibido ganancias por ventas. Aparecerán cuando "
+                "un comprador pague un producto de una finca donde invertiste."
+            )
+        else:
+            st.dataframe(
+                [
+                    {
+                        "Fecha": v["fecha"],
+                        "Finca": v["finca"],
+                        "Producto": v["producto"],
+                        "Pago": v["pago_id"],
+                        "Ganancia": cop(v["monto"]),
+                    }
+                    for v in ventas
                 ],
                 width="stretch",
                 hide_index=True,
